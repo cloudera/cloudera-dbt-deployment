@@ -54,21 +54,24 @@ def load_fetch_environment_variables():
 
 def generate_yarn_shell_command():
 
+    working_dir = "{}/dbt-{}".format(
+        ENV_VARIABLES["dbt_path"], datetime.utcnow().strftime("%Y-%m-%d-%H-%M-%S")
+    )
+
     kinit_command = "kinit -kt {} {}".format(
         ENV_VARIABLES["dbt_user_keytab"], ENV_VARIABLES["dbt_principal"]
     )
 
-    create_working_dir_command = "rm -fr {}/dbt && mkdir -p {}/dbt/profile-dir && cp profiles.yml {}/dbt/profile-dir && python3 -m venv {}/dbt/dbt-venv".format(
-        ENV_VARIABLES["dbt_path"],
-        ENV_VARIABLES["dbt_path"],
-        ENV_VARIABLES["dbt_path"],
-        ENV_VARIABLES["dbt_path"],
+    create_working_dir_command = "mkdir -p {}/profile-dir && cp profiles.yml {}/profile-dir && python3 -m venv {}/dbt-venv".format(
+        working_dir,
+        working_dir,
+        working_dir,
     )
 
-    ## TODO: remove/update if this is not needed while using parcels.
-    populate_working_dir_command = "source {}/dbt/dbt-venv/bin/activate && {}/dbt/dbt-venv/bin/pip install {} kerberos".format(
-        ENV_VARIABLES["dbt_path"],
-        ENV_VARIABLES["dbt_path"],
+    ## TODO: remove/update if this is not needed while using parcels or determined distribution mechanism
+    populate_working_dir_command = "source {}/dbt-venv/bin/activate && {}/dbt-venv/bin/pip install {} kerberos".format(
+        working_dir,
+        working_dir,
         ENV_VARIABLES["dbt_adapter_type"],
     )
 
@@ -77,11 +80,10 @@ def generate_yarn_shell_command():
         ENV_VARIABLES["git_project_name"],
     )
 
-    dbt_command = "{}/dbt/dbt-venv/bin/dbt {} --profiles-dir={}/dbt/profile-dir".format(
-        ENV_VARIABLES["dbt_path"],
+    dbt_command = "{}/dbt-venv/bin/dbt {} --profiles-dir={}/profile-dir".format(
+        working_dir,
         sys.argv[1],
-        ENV_VARIABLES["dbt_path"],
-        ENV_VARIABLES["dbt_path"],
+        working_dir,
     )
 
     dbt_logs_command = "cat logs/dbt.log >&2"
