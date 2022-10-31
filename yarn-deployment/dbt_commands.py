@@ -69,11 +69,8 @@ def generate_yarn_shell_command():
         working_dir,
     )
 
-    ## TODO: remove/update if this is not needed while using parcels or determined distribution mechanism
-    populate_working_dir_command = "source {}/dbt-venv/bin/activate && {}/dbt-venv/bin/pip install {} kerberos".format(
+    populate_working_dir_command = "source {}/dbt-venv/bin/activate".format(
         working_dir,
-        working_dir,
-        ENV_VARIABLES["dbt_adapter_type"],
     )
 
     git_command = "git clone {} && cd {}".format(

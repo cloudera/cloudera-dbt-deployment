@@ -10,7 +10,7 @@
       {
         "name": "dbtdocs",
         "number_of_containers": 1,
-        "launch_command": "python3 -m venv /tmp/hive-dbt && source /tmp/hive-dbt/bin/activate && pip install dbt-hive && git clone https://github.com/cloudera/dbt-hive-example.git && cd dbt-hive-example/dbt_hive_demo && /tmp/hive-dbt/bin/dbt docs generate --profiles-dir=/tmp && python3 -m http.server 8000 --directory target",
+        "launch_command": "python3 -m venv /tmp/hive-dbt && source /tmp/hive-dbt/bin/activate && git clone https://github.com/cloudera/dbt-hive-example.git && cd dbt-hive-example/dbt_hive_demo && /tmp/hive-dbt/bin/dbt docs generate --profiles-dir=/tmp && python3 -m http.server 8000 --directory target",
         "resource": {
           "cpus": 1, 
           "memory": "512"
