@@ -46,6 +46,6 @@ setup(
         "dbt-impala",
         "dbt-spark-livy",
     ],
-    python_requires=">=3.7.2",
+    python_requires=">=3.8",
     scripts=['dbt_commands.py'],
 )
