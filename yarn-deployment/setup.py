@@ -23,11 +23,12 @@ with open(os.path.join(this_directory, "README.md"), "r", encoding="utf8") as f:
     long_description = f.read()
 
 package_name = "cloudera-dbt-deployment"
+package_version = "1.1.2"
 description = """Package to install dbt and required libraries in cloudera environment"""
 
 setup(
     name=package_name,
-    version=__version__,,
+    version=package_version,
     description=description,
     long_description=long_description,
     long_description_content_type='text/markdown',
