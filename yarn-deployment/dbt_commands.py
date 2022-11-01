@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 
 # Copyright 2022 Cloudera Inc.
 #
@@ -69,8 +68,11 @@ def generate_yarn_shell_command():
         working_dir,
     )
 
-    populate_working_dir_command = "source {}/dbt-venv/bin/activate".format(
+    ## TODO: remove/update if this is not needed while using parcels or determined distribution mechanism
+    populate_working_dir_command = "source {}/dbt-venv/bin/activate && {}/dbt-venv/bin/pip install {} kerberos".format(
         working_dir,
+        working_dir,
+        ENV_VARIABLES["dbt_adapter_type"],
     )
 
     git_command = "git clone {} && cd {}".format(
