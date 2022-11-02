@@ -11,17 +11,3 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-dbt_hive_demo:
-  outputs:
-    dbt_hive_demo:
-      auth_type: kerberos
-      host: hajmera-3.hajmera.root.hwx.site
-      port: 10000
-      schema: dbt_hive_demo
-      threads: 3
-      type: hive
-      use_http_transport: false
-      use_ssl: false
-      kerberos_service_name: hive
-  target: dbt_hive_demo
