@@ -54,7 +54,7 @@ def generate_yarn_payload():
     component["number_of_containers"] = 1
     component[
         "launch_command"
-    ] = "python3 -m pip install dbt-hive dbt-impala && git clone https://github.com/cloudera/dbt-hive-example.git && cd dbt-hive-example/dbt_hive_demo && dbt docs generate --profiles-dir={} && python3 -m http.server 8000 --directory target".format(
+    ] = "python3 -m venv /tmp/hive-dbt && source /tmp/hive-dbt/bin/activate && pip install dbt-hive dbt-impala && git clone https://github.com/cloudera/dbt-hive-example.git && cd dbt-hive-example/dbt_hive_demo && dbt docs generate --profiles-dir={} && python3 -m http.server 8888 --directory target".format(
         ENV_VARIABLES["dbt_profiles_path"]
     )
     component["resource"] = {"cpus": 1, "memory": "512"}
