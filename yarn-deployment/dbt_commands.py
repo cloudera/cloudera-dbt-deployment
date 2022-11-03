@@ -1,4 +1,3 @@
-
 # Copyright 2022 Cloudera Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -44,56 +43,51 @@ def load_fetch_environment_variables():
     ENV_VARIABLES["dbt_profiles_path"] = os.getenv("DBT_PROFILES_PATH")
     ENV_VARIABLES["yarn_jar"] = os.getenv("YARN_JAR")
     ENV_VARIABLES["dbt_user"] = os.getenv("DBT_USER")
-    ENV_VARIABLES["dbt_path"] = os.getenv("DBT_PATH")
     ENV_VARIABLES["dbt_user_keytab"] = os.getenv("DBT_USER_KEYTAB")
     ENV_VARIABLES["dbt_principal"] = os.getenv("DBT_PRINCIPAL")
-    ENV_VARIABLES["git_url"] = os.getenv("GIT_URL")
     ENV_VARIABLES["git_project_name"] = os.getenv("GIT_PROJECT_NAME")
-    ENV_VARIABLES["dbt_adapter_type"] = os.getenv("DBT_ADAPTER_TYPE")
 
 
 def generate_yarn_shell_command():
-
-    working_dir = "{}/dbt-{}".format(
-        ENV_VARIABLES["dbt_path"], datetime.utcnow().strftime("%Y-%m-%d-%H-%M-%S")
-    )
 
     kinit_command = "kinit -kt {} {}".format(
         ENV_VARIABLES["dbt_user_keytab"], ENV_VARIABLES["dbt_principal"]
     )
 
-    create_working_dir_command = "mkdir -p {}/profile-dir && cp profiles.yml {}/profile-dir && python3 -m venv {}/dbt-venv".format(
-        working_dir,
-        working_dir,
-        working_dir,
-    )
+    working_dir = "/tmp/dbt-{}".format(datetime.utcnow().strftime("%Y-%m-%d-%H-%M-%S"))
 
-    ## TODO: remove/update if this is not needed while using parcels or determined distribution mechanism
-    populate_working_dir_command = "source {}/dbt-venv/bin/activate && {}/dbt-venv/bin/pip install {} kerberos".format(
+    create_working_dir_command = "mkdir -p {} && tar -zxf {} --directory {} && cd {}/{} && python3 -m venv {}/dbt-venv".format(
+        working_dir,
+        "dbt-workspace.tar.gz",
         working_dir,
         working_dir,
-        ENV_VARIABLES["dbt_adapter_type"],
-    )
-
-    git_command = "git clone {} && cd {}".format(
-        ENV_VARIABLES["git_url"],
         ENV_VARIABLES["git_project_name"],
+        working_dir,
     )
 
-    dbt_command = "{}/dbt-venv/bin/dbt {} --profiles-dir={}/profile-dir".format(
+    python_packages_list = "{}".format("dbt-hive dbt-impala")
+    populate_working_dir_command = (
+        "source {}/dbt-venv/bin/activate && {}/dbt-venv/bin/pip install {}".format(
+            working_dir,
+            working_dir,
+            python_packages_list,
+        )
+    )
+
+    dbt_command = "{}/dbt-venv/bin/dbt {} --profiles-dir={}/{}".format(
         working_dir,
         sys.argv[1],
         working_dir,
+        ENV_VARIABLES["git_project_name"],
     )
 
     dbt_logs_command = "cat logs/dbt.log >&2"
 
     # commands are meant to sequentially after previous success except dbt_logs_command that runs regardless of dbt_command success/failure.
-    shell_command = "{} && {} && {} && {} && {} ; {}".format(
+    shell_command = "{} && {} && {} && {} ; {}".format(
         kinit_command,
         create_working_dir_command,
         populate_working_dir_command,
-        git_command,
         dbt_command,
         dbt_logs_command,
     )
@@ -142,7 +136,27 @@ def print_yarn_logs(yarn_id, log_type):
     print(yarn_logs.stdout)
 
 
+# Compress current git project to localize in yarn containers.
+def compress_project_directory():
+    logging.info("Compressing dbt project directory: %s", os.getcwd())
+    compressed_project_directory = "/tmp/dbt-workspace.tar.gz"
+    result = subprocess.run(
+        [
+            "tar",
+            "-zcf",
+            compressed_project_directory,
+            ENV_VARIABLES["git_project_name"],
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    logging.info("Done compressing dbt project directory.")
+
+
 def launch_yarn_container_with_dbt_command():
+    compress_project_directory()
+
     # generate unique app name based on timestamp,username and host mac id.
     current_time = datetime.utcnow().strftime("%Y-%m-%d-%H-%M-%S")
     app_name = "dbt.{}.{}.{}".format(
@@ -165,7 +179,7 @@ def launch_yarn_container_with_dbt_command():
                 "-container_memory",
                 "2048",
                 "-localize_files",
-                "profiles.yml",
+                "/tmp/dbt-workspace.tar.gz",
                 "-appname",
                 app_name,
                 "-shell_command",
