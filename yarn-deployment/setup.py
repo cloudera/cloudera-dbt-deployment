@@ -36,7 +36,6 @@ setup(
     author="Cloudera",
     author_email="innovation-feedback@cloudera.com",
     url="https://github.com/cloudera/cloudera-dbt-deployment",
-    include_package_data=False,
     data_files=[('', ['.env'])],
     setup_requires=[
         "setuptools",
@@ -50,8 +49,9 @@ setup(
     ],
     py_modules=[],
     python_requires=">=3.8",
-    scripts=['dbt_commands.py','dbt_docs.py'],
+    scripts=['dbt_commands.py','dbt_docs.py','yarn_dbt.py'],
     entry_points={
         "console_scripts": ["yarn_dbt = yarn_dbt:main"],
     },
+    include_package_data=True,
 )
