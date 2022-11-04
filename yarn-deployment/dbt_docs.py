@@ -97,4 +97,6 @@ def host_dbt_docs():
     print(response.text)
 
 
-host_dbt_docs()
+def main():
+   host_dbt_docs()
+
