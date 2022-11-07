@@ -30,10 +30,7 @@ logging.basicConfig(
 # Global dictionary to store all environment variables.
 ENV_VARIABLES = {}
 
-if len(sys.argv) < 2:
-    logging.error("Insufficient arguments to continue execution of script.")
-    sys.exit(1)
-
+sys_args = []
 
 def load_fetch_environment_variables():
     # load the environment variables from .env file
@@ -51,6 +48,7 @@ def load_fetch_environment_variables():
 
 
 def generate_yarn_shell_command():
+    global sys_args
 
     kinit_command = "kinit -kt {} {}".format(
         ENV_VARIABLES["dbt_user_keytab"], ENV_VARIABLES["dbt_principal"]
@@ -78,7 +76,7 @@ def generate_yarn_shell_command():
 
     dbt_command = "{}/dbt-venv/bin/dbt {} --profiles-dir={}/{}".format(
         working_dir,
-        sys.argv[1],
+        sys_args[0],
         working_dir,
         ENV_VARIABLES["git_project_name"],
     )
@@ -201,6 +199,10 @@ def launch_yarn_container_with_dbt_command():
     print_yarn_logs(yarn_id, "prelaunch.out")
 
 
-# load and fetch the environment variables
-load_fetch_environment_variables()
-launch_yarn_container_with_dbt_command()
+def main(args):
+  global sys_args
+  sys_args = args
+
+  # load and fetch the environment variables
+  load_fetch_environment_variables()
+  launch_yarn_container_with_dbt_command()
