@@ -21,7 +21,7 @@ import sys
 import uuid
 
 from datetime import datetime
-from dotenv import load_dotenv
+from dotenv import load_dotenv,find_dotenv
 
 logging.basicConfig(
     level=logging.DEBUG, format="%(asctime)s - %(levelname)s: %(message)s"
@@ -35,7 +35,7 @@ sys_args = []
 def load_fetch_environment_variables():
     # load the environment variables from .env file
     logging.info("Loading environment variables.")
-    load_dotenv()
+    load_dotenv(find_dotenv())
     logging.info("Done Loading environment variables.")
 
     # fetch the environment variables
