@@ -316,7 +316,6 @@ def generate_yarn_payload():
         ENV_VARIABLES["git_project_name"],
     )
 
-    # commands are meant to sequentially after previous success except dbt_logs_command that runs regardless of dbt_command success/failure.
     launch_command = "{} && {} && {} && {} && {}".format(
         create_working_dir_command,
         download_python_dependencies_from_hdfs,
