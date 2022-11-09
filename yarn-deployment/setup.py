@@ -41,15 +41,12 @@ setup(
         "setuptools",
     ],
     install_requires=[
-        "python-dotenv",       
-        "dbt-hive",
-        "dbt-impala",
-        "dbt-spark-livy",
-        "requests_gssapi"
+        "python-dotenv",      
+	"requests_gssapi",
     ],
     py_modules=[],
     python_requires=">=3.8",
-    scripts=['dbt_commands.py','dbt_docs.py','yarn_dbt.py'],
+    scripts=['yarn_dbt.py'],
     entry_points={
         "console_scripts": ["yarn_dbt = yarn_dbt:main"],
     },
