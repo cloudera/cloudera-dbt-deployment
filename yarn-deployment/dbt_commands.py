@@ -21,7 +21,7 @@ import sys
 import uuid
 
 from datetime import datetime
-from dotenv import load_dotenv,find_dotenv
+from dotenv import load_dotenv, find_dotenv
 
 logging.basicConfig(
     level=logging.DEBUG, format="%(asctime)s - %(levelname)s: %(message)s"
@@ -31,6 +31,7 @@ logging.basicConfig(
 ENV_VARIABLES = {}
 
 sys_args = []
+
 
 def load_fetch_environment_variables():
     # load the environment variables from .env file
@@ -45,6 +46,10 @@ def load_fetch_environment_variables():
     ENV_VARIABLES["dbt_user_keytab"] = os.getenv("DBT_USER_KEYTAB")
     ENV_VARIABLES["dbt_principal"] = os.getenv("DBT_PRINCIPAL")
     ENV_VARIABLES["git_project_name"] = os.getenv("GIT_PROJECT_NAME")
+    ENV_VARIABLES["dependencies_package_location"] = os.getenv(
+        "DEPENDENCIES_PACKAGE_LOCATION"
+    )
+    ENV_VARIABLES["dbt_project_path"] = os.getenv("DBT_PROJECT_PATH")
 
 
 def generate_yarn_shell_command():
@@ -56,25 +61,31 @@ def generate_yarn_shell_command():
 
     working_dir = "/tmp/dbt-{}".format(datetime.utcnow().strftime("%Y-%m-%d-%H-%M-%S"))
 
-    create_working_dir_command = "mkdir -p {} && tar -zxf {} --directory {} && cd {}/{} && python3 -m venv {}/dbt-venv".format(
+    create_working_dir_command = "mkdir -p {} && tar -zxf {} --directory {} && cd {} && python3 -m venv {}/dbt-venv".format(
         working_dir,
         "dbt-workspace.tar.gz",
         working_dir,
         working_dir,
-        ENV_VARIABLES["git_project_name"],
         working_dir,
     )
 
-    python_packages_list = "{}".format("dbt-hive dbt-impala")
-    populate_working_dir_command = (
-        "source {}/dbt-venv/bin/activate && {}/dbt-venv/bin/pip install {}".format(
-            working_dir,
-            working_dir,
-            python_packages_list,
-        )
+    download_python_dependencies_from_hdfs = "hdfs dfs -copyToLocal {}/dependencies.tar.gz {} && tar -zxf {}/dependencies.tar.gz --directory {}".format(
+        ENV_VARIABLES["dependencies_package_location"],
+        working_dir,
+        working_dir,
+        working_dir,
     )
 
-    dbt_command = "{}/dbt-venv/bin/dbt {} --profiles-dir={}/{}".format(
+    populate_working_dir_command = "ls -lrt && ls -lrt {} && source {}/dbt-venv/bin/activate && cd {}/dependencies && {}/dbt-venv/bin/pip install * -f ./ --no-index".format(
+        working_dir,
+        working_dir,
+        working_dir,
+        working_dir,
+    )
+
+    dbt_command = "cd {}/{} && {}/dbt-venv/bin/dbt {} --profiles-dir={}/{}".format(
+        working_dir,
+        ENV_VARIABLES["git_project_name"],
         working_dir,
         sys_args[0],
         working_dir,
@@ -84,9 +95,10 @@ def generate_yarn_shell_command():
     dbt_logs_command = "cat logs/dbt.log >&2"
 
     # commands are meant to sequentially after previous success except dbt_logs_command that runs regardless of dbt_command success/failure.
-    shell_command = "{} && {} && {} && {} ; {}".format(
+    shell_command = "{} && {} && {} && {} && {} ; {}".format(
         kinit_command,
         create_working_dir_command,
+        download_python_dependencies_from_hdfs,
         populate_working_dir_command,
         dbt_command,
         dbt_logs_command,
@@ -200,9 +212,10 @@ def launch_yarn_container_with_dbt_command():
 
 
 def main(args):
-  global sys_args
-  sys_args = args
+    global sys_args
+    sys_args = args
 
-  # load and fetch the environment variables
-  load_fetch_environment_variables()
-  launch_yarn_container_with_dbt_command()
+    # load and fetch the environment variables
+    load_fetch_environment_variables()
+    launch_yarn_container_with_dbt_command()
+
