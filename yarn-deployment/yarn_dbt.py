@@ -27,7 +27,7 @@ from dotenv import load_dotenv, find_dotenv
 from requests_gssapi import HTTPSPNEGOAuth
 
 logging.basicConfig(
-    level=logging.DEBUG, format="%(asctime)s - %(levelname)s: %(message)s"
+    level=logging.ERROR, format="%(asctime)s - %(levelname)s: %(message)s"
 )
 
 # Global dictionary to store all environment variables.
@@ -65,7 +65,6 @@ def load_fetch_environment_variables():
     logging.info("Done Loading environment variables.")
 
     # fetch the environment variables
-    ENV_VARIABLES["dbt_profiles_path"] = os.getenv("DBT_PROFILES_PATH")
     ENV_VARIABLES["yarn_jar"] = os.getenv("YARN_JAR")
     ENV_VARIABLES["dbt_user"] = os.getenv("DBT_USER")
     ENV_VARIABLES["dbt_user_keytab"] = os.getenv("DBT_USER_KEYTAB")
@@ -74,22 +73,27 @@ def load_fetch_environment_variables():
     ENV_VARIABLES["dependencies_package_location"] = os.getenv(
         "DEPENDENCIES_PACKAGE_LOCATION"
     )
-    ENV_VARIABLES["dbt_project_path"] = os.getenv("DBT_PROJECT_PATH")
     ENV_VARIABLES["yarn_principal"] = os.getenv("YARN_PRINCIPAL")
     ENV_VARIABLES["yarn_keytab"] = os.getenv("YARN_KEYTAB")
     ENV_VARIABLES["yarn_rm_uri"] = os.getenv("YARN_RM_URI")
 
 
+def generate_yarn_shell_command(app_name):
 
-def generate_yarn_shell_command():
-    global sys_args
-
+    # Perform kerberos authorization
+    kinit_start = "echo -n '{}: Kinit start: '; date +'%Y-%m-%d:%H:%M:%S'".format(
+        app_name
+    )
     kinit_command = "kinit -kt {} {}".format(
         ENV_VARIABLES["dbt_user_keytab"], ENV_VARIABLES["dbt_principal"]
     )
+    kinit_end = "echo -n '{}: Kinit end: '; date +'%Y-%m-%d:%H:%M:%S'".format(app_name)
 
+    # Create a scratch directory for working with dbt project in container
     working_dir = "/tmp/dbt-{}".format(datetime.utcnow().strftime("%Y-%m-%d-%H-%M-%S"))
-
+    create_working_dir_start = "echo -n '{}: Create working directory start: '; date +'%Y-%m-%d:%H:%M:%S'".format(
+        app_name
+    )
     create_working_dir_command = "mkdir -p {} && tar -zxf {} --directory {} && cd {} && python3 -m venv {}/dbt-venv".format(
         working_dir,
         "dbt-workspace.tar.gz",
@@ -97,40 +101,84 @@ def generate_yarn_shell_command():
         working_dir,
         working_dir,
     )
+    create_working_dir_end = "echo -n '{}: Create working directory end: '; date +'%Y-%m-%d:%H:%M:%S'".format(
+        app_name
+    )
 
+    # Download python dependencies from HDFS to local container
+    download_python_dependencies_start = "echo -n '{}: Download python dependencies start: '; date +'%Y-%m-%d:%H:%M:%S'".format(
+        app_name
+    )
     download_python_dependencies_from_hdfs = "hdfs dfs -copyToLocal {}/dependencies.tar.gz {} && tar -zxf {}/dependencies.tar.gz --directory {}".format(
         ENV_VARIABLES["dependencies_package_location"],
         working_dir,
         working_dir,
         working_dir,
     )
+    download_python_dependencies_end = "echo -n '{}: Download python dependencies end: '; date +'%Y-%m-%d:%H:%M:%S'".format(
+        app_name
+    )
 
-    populate_working_dir_command = "source {}/dbt-venv/bin/activate && cd {}/dependencies && {}/dbt-venv/bin/pip install * -f ./ --no-index".format(
+    # Install python dependencies in local container
+    populate_working_dir_command_start = "echo -n '{}: Install python dependencies start: '; date +'%Y-%m-%d:%H:%M:%S'".format(
+        app_name
+    )
+    populate_working_dir_command = "source {}/dbt-venv/bin/activate && cd {}/dependencies && {}/dbt-venv/bin/pip install * -q -f ./ --no-index".format(
         working_dir,
         working_dir,
         working_dir,
     )
+    populate_working_dir_command_end = "echo -n '{}: Install python dependencies end: '; date +'%Y-%m-%d:%H:%M:%S'".format(
+        app_name
+    )
 
+    # Run dbt command in local container
     dbt_command_string = " ".join(sys.argv[1:])
+    run_dbt_command_start = (
+        "echo -n '{}: Dbt command start: '; date +'%Y-%m-%d:%H:%M:%S'".format(app_name)
+    )
     dbt_command = "cd {}/{} && {}/dbt-venv/bin/dbt {} --profiles-dir={}/{}".format(
         working_dir,
         ENV_VARIABLES["git_project_name"],
         working_dir,
-        command,
+        dbt_command_string,
         working_dir,
         ENV_VARIABLES["git_project_name"],
     )
+    run_dbt_command_end = (
+        "echo -n '{}: Dbt command end: '; date +'%Y-%m-%d:%H:%M:%S'".format(app_name)
+    )
 
-    dbt_logs_command = "cat logs/dbt.log >&2"
+    # Aggregate logs and cleanup workspace.
+    dbt_post_run_start = "echo -n '{}: DBT post run log aggregation and cleanup start: '; date +'%Y-%m-%d:%H:%M:%S'".format(
+        app_name
+    )
+    dbt_post_run_command = "cat logs/dbt.log >&2"
+    dbt_post_run_end = "echo -n '{}: DBT post run log aggregation and cleanup end '; date +'%Y-%m-%d:%H:%M:%S'; rm -rf {}".format(
+        app_name,
+        working_dir,
+    )
 
     # commands are meant to sequentially after previous success except dbt_logs_command that runs regardless of dbt_command success/failure.
-    shell_command = "{} && {} && {} && {} && {} ; {}".format(
+    shell_command = "{} && {} && {} && {} && {} && {} && {} && {} && {} && {} && {} && {} && {} && {} && {} ; {} && {} && {}".format(
+        kinit_start,
         kinit_command,
+        kinit_end,
+        create_working_dir_start,
         create_working_dir_command,
+        create_working_dir_end,
+        download_python_dependencies_start,
         download_python_dependencies_from_hdfs,
+        download_python_dependencies_end,
+        populate_working_dir_command_start,
         populate_working_dir_command,
+        populate_working_dir_command_end,
+        run_dbt_command_start,
         dbt_command,
-        dbt_logs_command,
+        run_dbt_command_end,
+        dbt_post_run_start,
+        dbt_post_run_command,
+        dbt_post_run_end,
     )
 
     return shell_command
@@ -199,11 +247,8 @@ def launch_yarn_container_with_dbt_command():
     compress_project_directory()
 
     # generate unique app name based on timestamp,username and host mac id.
-    current_time = datetime.utcnow().strftime("%Y-%m-%d-%H-%M-%S")
-    app_name = "dbt.{}.{}.{}".format(
-        ENV_VARIABLES["dbt_user"], uuid.uuid1(), current_time
-    )
-    shell_command = generate_yarn_shell_command()
+    app_name = "dbt.{}.{}".format(ENV_VARIABLES["dbt_user"], uuid.uuid1())
+    shell_command = generate_yarn_shell_command(app_name)
     logging.info("shell command generated: %s", shell_command)
     logging.info(
         "Starting to execute the DBT job in YARN using Distributed Shell App for appid: %s",
@@ -316,6 +361,7 @@ def generate_yarn_payload():
         ENV_VARIABLES["git_project_name"],
     )
 
+    # commands are meant to sequentially after previous success except dbt_logs_command that runs regardless of dbt_command success/failure.
     launch_command = "{} && {} && {} && {} && {}".format(
         create_working_dir_command,
         download_python_dependencies_from_hdfs,
