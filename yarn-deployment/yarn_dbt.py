@@ -19,11 +19,12 @@ import logging
 import os
 import requests
 import subprocess
+import socket
 import sys
 import uuid
 
 from datetime import datetime
-from dotenv import load_dotenv, find_dotenv
+from dotenv import load_dotenv, find_dotenv, dotenv_values
 from requests_gssapi import HTTPSPNEGOAuth
 
 logging.basicConfig(
@@ -31,7 +32,7 @@ logging.basicConfig(
 )
 
 # Global dictionary to store all environment variables.
-ENV_VARIABLES = {}
+ENV_VARIABLES = None
 
 commands = ["debug", "run", "seed", "test", "snapshot"]
 docs = ["docs"]
@@ -44,8 +45,11 @@ def main():
         print("usage: yarn_dbt [run|debug|seed|test|snapshot|docs]")
         sys.exit(10)
 
-    # load and fetch the environment variables
+    # load and fetch the environment variables needed for launching a yarn container
     load_fetch_environment_variables()
+
+    # perform user authorization for running yarn commands
+    perform_user_authorization()
 
     if sys.argv[1] in commands:
         print("Running dbt commands: ")
@@ -55,41 +59,80 @@ def main():
         print("Running dbt_docs: ")
         host_dbt_docs()
     else:
-        print("Option not supported" + sys.argv[1])
+        print("Option not supported: " + sys.argv[1])
 
 
+# load the environment variables from .env file
 def load_fetch_environment_variables():
-    # load the environment variables from .env file
     logging.info("Loading environment variables.")
+    isFile = os.path.isfile("yarn.env")
+    if not isFile:
+        logging.critical(
+            "Missing yarn.env file in current working directory " + os.getcwd()
+        )
+        sys.exit(10)
+
+    dot_env_path = os.path.join(os.getcwd(), "yarn.env")
+    global ENV_VARIABLES
+    ENV_VARIABLES = dotenv_values(dot_env_path)
+    logging.info(f"Found config in %s", dot_env_path)
+    for key, value in ENV_VARIABLES.items():
+        logging.info(f"{key} : {value}")
     load_dotenv(find_dotenv())
     logging.info("Done Loading environment variables.")
 
-    # fetch the environment variables
-    ENV_VARIABLES["dbt_profiles_path"] = os.getenv("DBT_PROFILES_PATH")
-    ENV_VARIABLES["yarn_jar"] = os.getenv("YARN_JAR")
-    ENV_VARIABLES["dbt_user"] = os.getenv("DBT_USER")
-    ENV_VARIABLES["dbt_user_keytab"] = os.getenv("DBT_USER_KEYTAB")
-    ENV_VARIABLES["dbt_principal"] = os.getenv("DBT_PRINCIPAL")
-    ENV_VARIABLES["git_project_name"] = os.getenv("GIT_PROJECT_NAME")
-    ENV_VARIABLES["dependencies_package_location"] = os.getenv(
-        "DEPENDENCIES_PACKAGE_LOCATION"
-    )
-    ENV_VARIABLES["dbt_project_path"] = os.getenv("DBT_PROJECT_PATH")
-    ENV_VARIABLES["yarn_principal"] = os.getenv("YARN_PRINCIPAL")
-    ENV_VARIABLES["yarn_keytab"] = os.getenv("YARN_KEYTAB")
-    ENV_VARIABLES["yarn_rm_uri"] = os.getenv("YARN_RM_URI")
 
+# Perform kerberos authorization in gateway machine
+def perform_user_authorization():
+    # get hostname
+    host = socket.gethostname()
+    keytab_path = get_service_user_keytab()
+    logging.info("Found keytab file /%s", keytab_path)
 
-
-def generate_yarn_shell_command():
-    global sys_args
-
-    kinit_command = "kinit -kt {} {}".format(
-        ENV_VARIABLES["dbt_user_keytab"], ENV_VARIABLES["dbt_principal"]
+    # perform authorization
+    keytab_path = subprocess.run(
+        ["kinit", "-kt", keytab_path, "{}/{}".format(ENV_VARIABLES["DBT_USER"], host)],
+        check=True,
+        capture_output=True,
+        text=True,
     )
 
+
+# get the yarn service user keytab distributed to all the nodes by cloudera scm agent
+def get_service_user_keytab():
+    service_name = "{}.keytab".format(ENV_VARIABLES["DBT_USER"])
+    search_path = "/var/run/cloudera-scm-agent/process/"
+
+    # search for service keytab path 
+    for dirpath, dirname, filename in os.walk(search_path):
+        if service_name in filename:
+            return os.path.join(dirpath, service_name)
+
+    logging.critical(
+        "Couldn't find service keytab {} in location".format(service_name) + search_path
+    )
+    sys.exit(10)
+
+
+def generate_yarn_shell_command(app_name):
+    # Perform kerberos authorization inside yarn container
+    kinit_start = "echo -n '{}: Kinit start: '; date +'%Y-%m-%d:%H:%M:%S'".format(
+        app_name
+    )
+
+    # find keytab path and hostname for gateway machine
+    keytab_path = get_service_user_keytab()
+    host = socket.gethostname()
+    kinit_command = "kinit -kt {} {}/{}".format(
+        keytab_path, ENV_VARIABLES["DBT_USER"], host
+    )
+    kinit_end = "echo -n '{}: Kinit end: '; date +'%Y-%m-%d:%H:%M:%S'".format(app_name)
+
+    # Create a scratch directory for working with dbt project in container
     working_dir = "/tmp/dbt-{}".format(datetime.utcnow().strftime("%Y-%m-%d-%H-%M-%S"))
-
+    create_working_dir_start = "echo -n '{}: Create working directory start: '; date +'%Y-%m-%d:%H:%M:%S'".format(
+        app_name
+    )
     create_working_dir_command = "mkdir -p {} && tar -zxf {} --directory {} && cd {} && python3 -m venv {}/dbt-venv".format(
         working_dir,
         "dbt-workspace.tar.gz",
@@ -97,40 +140,84 @@ def generate_yarn_shell_command():
         working_dir,
         working_dir,
     )
+    create_working_dir_end = "echo -n '{}: Create working directory end: '; date +'%Y-%m-%d:%H:%M:%S'".format(
+        app_name
+    )
 
+    # Download python dependencies from HDFS to local container
+    download_python_dependencies_start = "echo -n '{}: Download python dependencies start: '; date +'%Y-%m-%d:%H:%M:%S'".format(
+        app_name
+    )
     download_python_dependencies_from_hdfs = "hdfs dfs -copyToLocal {}/dependencies.tar.gz {} && tar -zxf {}/dependencies.tar.gz --directory {}".format(
-        ENV_VARIABLES["dependencies_package_location"],
+        ENV_VARIABLES["DEPENDENCIES_PACKAGE_LOCATION"],
         working_dir,
         working_dir,
         working_dir,
     )
+    download_python_dependencies_end = "echo -n '{}: Download python dependencies end: '; date +'%Y-%m-%d:%H:%M:%S'".format(
+        app_name
+    )
 
-    populate_working_dir_command = "source {}/dbt-venv/bin/activate && cd {}/dependencies && {}/dbt-venv/bin/pip install * -f ./ --no-index".format(
+    # Install python dependencies in local container
+    populate_working_dir_command_start = "echo -n '{}: Install python dependencies start: '; date +'%Y-%m-%d:%H:%M:%S'".format(
+        app_name
+    )
+    populate_working_dir_command = "source {}/dbt-venv/bin/activate && cd {}/dependencies && {}/dbt-venv/bin/pip install * -q -f ./ --no-index".format(
         working_dir,
         working_dir,
         working_dir,
     )
+    populate_working_dir_command_end = "echo -n '{}: Install python dependencies end: '; date +'%Y-%m-%d:%H:%M:%S'".format(
+        app_name
+    )
 
+    # Run dbt command in local container
     dbt_command_string = " ".join(sys.argv[1:])
+    run_dbt_command_start = (
+        "echo -n '{}: Dbt command start: '; date +'%Y-%m-%d:%H:%M:%S'".format(app_name)
+    )
     dbt_command = "cd {}/{} && {}/dbt-venv/bin/dbt {} --profiles-dir={}/{}".format(
         working_dir,
-        ENV_VARIABLES["git_project_name"],
+        ENV_VARIABLES["DBT_PROJECT_NAME"],
         working_dir,
-        command,
+        dbt_command_string,
         working_dir,
-        ENV_VARIABLES["git_project_name"],
+        ENV_VARIABLES["DBT_PROJECT_NAME"],
+    )
+    run_dbt_command_end = (
+        "echo -n '{}: Dbt command end: '; date +'%Y-%m-%d:%H:%M:%S'".format(app_name)
     )
 
-    dbt_logs_command = "cat logs/dbt.log >&2"
+    # Aggregate logs and cleanup workspace.
+    dbt_post_run_start = "echo -n '{}: DBT post run log aggregation and cleanup start: '; date +'%Y-%m-%d:%H:%M:%S'".format(
+        app_name
+    )
+    dbt_post_run_command = "cat logs/dbt.log >&2"
+    dbt_post_run_end = "echo -n '{}: DBT post run log aggregation and cleanup end '; date +'%Y-%m-%d:%H:%M:%S'; rm -rf {}".format(
+        app_name,
+        working_dir,
+    )
 
     # commands are meant to sequentially after previous success except dbt_logs_command that runs regardless of dbt_command success/failure.
-    shell_command = "{} && {} && {} && {} && {} ; {}".format(
+    shell_command = "{} && {} && {} && {} && {} && {} && {} && {} && {} && {} && {} && {} && {} && {} && {} ; {} && {} && {}".format(
+        kinit_start,
         kinit_command,
+        kinit_end,
+        create_working_dir_start,
         create_working_dir_command,
+        create_working_dir_end,
+        download_python_dependencies_start,
         download_python_dependencies_from_hdfs,
+        download_python_dependencies_end,
+        populate_working_dir_command_start,
         populate_working_dir_command,
+        populate_working_dir_command_end,
+        run_dbt_command_start,
         dbt_command,
-        dbt_logs_command,
+        run_dbt_command_end,
+        dbt_post_run_start,
+        dbt_post_run_command,
+        dbt_post_run_end,
     )
 
     return shell_command
@@ -177,7 +264,7 @@ def print_yarn_logs(yarn_id, log_type):
     print(yarn_logs.stdout)
 
 
-# Compress current git project to localize in yarn containers.
+# Compress current dbt project to localize in yarn containers.
 def compress_project_directory():
     logging.info("Compressing dbt project directory: %s", os.getcwd())
     compressed_project_directory = "/tmp/dbt-workspace.tar.gz"
@@ -186,7 +273,7 @@ def compress_project_directory():
             "tar",
             "-zcf",
             compressed_project_directory,
-            ENV_VARIABLES["git_project_name"],
+            ENV_VARIABLES["DBT_PROJECT_NAME"],
         ],
         check=True,
         capture_output=True,
@@ -196,14 +283,26 @@ def compress_project_directory():
 
 
 def launch_yarn_container_with_dbt_command():
+    # generate unique app name based on timestamp,username and host mac id.
+    app_name = "dbt.{}.{}".format(ENV_VARIABLES["DBT_USER"], uuid.uuid1())
+
+    logging.debug(
+        "%s",
+        "{}: Compress dbt project directory start: {}".format(
+            app_name, datetime.utcnow().strftime("%Y-%m-%d:%H-%M-%S")
+        ),
+    )
+
     compress_project_directory()
 
-    # generate unique app name based on timestamp,username and host mac id.
-    current_time = datetime.utcnow().strftime("%Y-%m-%d-%H-%M-%S")
-    app_name = "dbt.{}.{}.{}".format(
-        ENV_VARIABLES["dbt_user"], uuid.uuid1(), current_time
+    logging.debug(
+        "%s",
+        "{}: Compress dbt project directory end: {}".format(
+            app_name, datetime.utcnow().strftime("%Y-%m-%d:%H-%M-%S")
+        ),
     )
-    shell_command = generate_yarn_shell_command()
+
+    shell_command = generate_yarn_shell_command(app_name)
     logging.info("shell command generated: %s", shell_command)
     logging.info(
         "Starting to execute the DBT job in YARN using Distributed Shell App for appid: %s",
@@ -216,7 +315,7 @@ def launch_yarn_container_with_dbt_command():
                 "hadoop",
                 "org.apache.hadoop.yarn.applications.distributedshell.Client",
                 "-jar",
-                ENV_VARIABLES["yarn_jar"],
+                ENV_VARIABLES["YARN_JAR"],
                 "-container_memory",
                 "2048",
                 "-localize_files",
@@ -261,11 +360,14 @@ def copy_project_to_hdfs():
 
 # generate JSON payload dynamically to send to yarn container to generate /serve dbt docs
 def generate_yarn_payload():
-
     kerberos_principal = {}
-    kerberos_principal["principal_name"] = "{}".format(ENV_VARIABLES["yarn_principal"])
-    kerberos_principal["keytab"] = "file://{}".format(ENV_VARIABLES["yarn_keytab"])
-
+    service_user_keytab = get_service_user_keytab()
+    kerberos_principal["keytab"] = "file://{}".format(service_user_keytab)
+    host = socket.gethostname()
+    principal = "{}/{}"
+    kerberos_principal["principal_name"] = "{}/{}".format(
+        ENV_VARIABLES["DBT_USER"], host
+    )
     copy_project_to_hdfs()
 
     artifact = {}
@@ -290,7 +392,7 @@ def generate_yarn_payload():
     )
 
     download_python_dependencies_from_hdfs = "hdfs dfs -copyToLocal {}/dependencies.tar.gz {} && tar -zxf {}/dependencies.tar.gz --directory {}".format(
-        ENV_VARIABLES["dependencies_package_location"],
+        ENV_VARIABLES["DEPENDENCIES_PACKAGE_LOCATION"],
         yarn_local_working_dir,
         yarn_local_working_dir,
         yarn_local_working_dir,
@@ -310,12 +412,13 @@ def generate_yarn_payload():
 
     generate_serve_dbt_docs = "cd {}/{} && {}/dbt-venv/bin/dbt docs generate --profiles-dir={}/{} ; echo 'DBT docs hosted on port 7777 on host: ' $(hostname) >&2 && python3 -m http.server 7777 --directory target".format(
         yarn_local_working_dir,
-        ENV_VARIABLES["git_project_name"],
+        ENV_VARIABLES["DBT_PROJECT_NAME"],
         yarn_local_working_dir,
         yarn_local_working_dir,
-        ENV_VARIABLES["git_project_name"],
+        ENV_VARIABLES["DBT_PROJECT_NAME"],
     )
 
+    # commands are meant to sequentially after previous success except dbt_logs_command that runs regardless of dbt_command success/failure.
     launch_command = "{} && {} && {} && {} && {}".format(
         create_working_dir_command,
         download_python_dependencies_from_hdfs,
@@ -324,10 +427,9 @@ def generate_yarn_payload():
         generate_serve_dbt_docs,
     )
 
-    print(launch_command)
+    logging.info(launch_command)
 
     component["launch_command"] = launch_command
-
     component["resource"] = {"cpus": 1, "memory": "512"}
 
     env = {}
@@ -353,7 +455,7 @@ def host_dbt_docs():
 
     # Rest Api doc: https://hadoop.apache.org/docs/stable/hadoop-yarn/hadoop-yarn-site/yarn-service/YarnServiceAPI.html#ConfigFile
     response = requests.post(
-        ENV_VARIABLES["yarn_rm_uri"] + "/app/v1/services",
+        ENV_VARIABLES["YARN_RM_URI"] + "/app/v1/services",
         data=json.dumps(payload),
         auth=gssapi_auth,
         headers=headers,
