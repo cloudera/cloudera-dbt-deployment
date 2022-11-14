@@ -24,7 +24,7 @@ import sys
 import uuid
 
 from datetime import datetime
-from dotenv import load_dotenv, find_dotenv, dotenv_values
+from dotenv import dotenv_values
 from requests_gssapi import HTTPSPNEGOAuth
 
 logging.basicConfig(
@@ -78,7 +78,6 @@ def load_fetch_environment_variables():
     logging.info(f"Found config in %s", dot_env_path)
     for key, value in ENV_VARIABLES.items():
         logging.info(f"{key} : {value}")
-    load_dotenv(find_dotenv())
     logging.info("Done Loading environment variables.")
 
 
@@ -462,4 +461,3 @@ def host_dbt_docs():
         verify=False,
     )
     print(response.text)
-
