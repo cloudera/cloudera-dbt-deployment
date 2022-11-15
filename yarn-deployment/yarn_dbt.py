@@ -86,11 +86,16 @@ def perform_user_authorization():
     # get hostname
     host = socket.gethostname()
     keytab_path = get_service_user_keytab()
-    logging.info("Found keytab file /%s", keytab_path)
+    logging.info("Found keytab file %s", keytab_path)
 
     # perform authorization
     keytab_path = subprocess.run(
-        ["kinit", "-kt", keytab_path, "{}/{}".format(ENV_VARIABLES["DBT_USER"], host)],
+        [
+            "kinit",
+            "-kt",
+            keytab_path,
+            "{}/{}".format(ENV_VARIABLES["DBT_SERVICE_USER"], host),
+        ],
         check=True,
         capture_output=True,
         text=True,
@@ -99,10 +104,10 @@ def perform_user_authorization():
 
 # get the yarn service user keytab distributed to all the nodes by cloudera scm agent
 def get_service_user_keytab():
-    service_name = "{}.keytab".format(ENV_VARIABLES["DBT_USER"])
+    service_name = "{}.keytab".format(ENV_VARIABLES["DBT_SERVICE_USER"])
     search_path = "/var/run/cloudera-scm-agent/process/"
 
-    # search for service keytab path 
+    # search for service keytab path
     for dirpath, dirname, filename in os.walk(search_path):
         if service_name in filename:
             return os.path.join(dirpath, service_name)
@@ -120,10 +125,9 @@ def generate_yarn_shell_command(app_name):
     )
 
     # find keytab path and hostname for gateway machine
-    keytab_path = get_service_user_keytab()
-    host = socket.gethostname()
-    kinit_command = "kinit -kt {} {}/{}".format(
-        keytab_path, ENV_VARIABLES["DBT_USER"], host
+    kinit_command = "kinit -kt {} {}".format(
+        ENV_VARIABLES["DBT_HEADLESS_KEYTAB"],
+        ENV_VARIABLES["DBT_HEADLESS_PRINCIPAL"],
     )
     kinit_end = "echo -n '{}: Kinit end: '; date +'%Y-%m-%d:%H:%M:%S'".format(app_name)
 
@@ -170,6 +174,23 @@ def generate_yarn_shell_command(app_name):
         app_name
     )
 
+    # Set environment variable for dbt deployment
+    set_environment_variables_start = "echo -n '{}: Setting env blob for deployment start: '; date +'%Y-%m-%d:%H:%M:%S'".format(
+        app_name
+    )
+    DBT_DEPLOYMENT_ENV = "env:{},version:{},description:{}".format(
+        "yarn",
+        "1.2.0",
+        "Dbt job ran using yarn as resouce manager and with packages dbt-impala=1.2.0,dbt-hive=1.2.0,dbt-spark-livy=1.2.0",
+    )
+
+    set_environment_variables_command = "export DBT_DEPLOYMENT_ENV='{}'".format(
+        DBT_DEPLOYMENT_ENV
+    )
+    set_environment_variables_end = "echo -n '{}: Setting env blob for deployment done: '; date +'%Y-%m-%d:%H:%M:%S'".format(
+        app_name
+    )
+
     # Run dbt command in local container
     dbt_command_string = " ".join(sys.argv[1:])
     run_dbt_command_start = (
@@ -198,7 +219,7 @@ def generate_yarn_shell_command(app_name):
     )
 
     # commands are meant to sequentially after previous success except dbt_logs_command that runs regardless of dbt_command success/failure.
-    shell_command = "{} && {} && {} && {} && {} && {} && {} && {} && {} && {} && {} && {} && {} && {} && {} ; {} && {} && {}".format(
+    shell_command = "{} && {} && {} && {} && {} && {} && {} && {} && {} && {}  && {} && {} && {} && {} && {} && {} && {} && {} ; {} && {} && {}".format(
         kinit_start,
         kinit_command,
         kinit_end,
@@ -211,6 +232,9 @@ def generate_yarn_shell_command(app_name):
         populate_working_dir_command_start,
         populate_working_dir_command,
         populate_working_dir_command_end,
+        set_environment_variables_start,
+        set_environment_variables_command,
+        set_environment_variables_end,
         run_dbt_command_start,
         dbt_command,
         run_dbt_command_end,
@@ -283,7 +307,7 @@ def compress_project_directory():
 
 def launch_yarn_container_with_dbt_command():
     # generate unique app name based on timestamp,username and host mac id.
-    app_name = "dbt.{}.{}".format(ENV_VARIABLES["DBT_USER"], uuid.uuid1())
+    app_name = "dbt.{}.{}".format(ENV_VARIABLES["DBT_SERVICE_USER"], uuid.uuid1())
 
     logging.debug(
         "%s",
@@ -365,7 +389,7 @@ def generate_yarn_payload():
     host = socket.gethostname()
     principal = "{}/{}"
     kerberos_principal["principal_name"] = "{}/{}".format(
-        ENV_VARIABLES["DBT_USER"], host
+        ENV_VARIABLES["DBT_SERVICE_USER"], host
     )
     copy_project_to_hdfs()
 
@@ -461,3 +485,4 @@ def host_dbt_docs():
         verify=False,
     )
     print(response.text)
+
