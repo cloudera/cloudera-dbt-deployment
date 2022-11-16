@@ -178,19 +178,19 @@ def generate_yarn_shell_command(app_name):
     set_environment_variables_start = "echo -n '{}: Setting env blob for deployment start: '; date +'%Y-%m-%d:%H:%M:%S'".format(
         app_name
     )
-    DBT_DEPLOYMENT_ENV = "env:{},version:{},description:{}".format(
-        "yarn",
-        "1.2.0",
-        "Dbt job ran using yarn as resouce manager and with packages dbt-impala=1.2.0,dbt-hive=1.2.0,dbt-spark-livy=1.2.0",
-    )
 
-    set_environment_variables_command = "export DBT_DEPLOYMENT_ENV='{}'".format(
-        DBT_DEPLOYMENT_ENV
+    DBT_DEPLOYMENT_ENV = {}
+    DBT_DEPLOYMENT_ENV["env"] = "yarn"
+    DBT_DEPLOYMENT_ENV["version"] = "1.2.0"
+
+    dbt_env_json_string = json.dumps(DBT_DEPLOYMENT_ENV)
+    set_environment_variables_command = "DBT_DEPLOYMENT_ENV='{}' && export DBT_DEPLOYMENT_ENV".format(
+        dbt_env_json_string
     )
     set_environment_variables_end = "echo -n '{}: Setting env blob for deployment done: '; date +'%Y-%m-%d:%H:%M:%S'".format(
         app_name
     )
-
+    
     # Run dbt command in local container
     dbt_command_string = " ".join(sys.argv[1:])
     run_dbt_command_start = (
