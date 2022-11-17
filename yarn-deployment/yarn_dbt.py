@@ -107,7 +107,7 @@ def check_environment_variables(ENV_VARIABLES):
     ENV_VARIABLES.setdefault("DBT_DOCS_PORT", "7777")
     ENV_VARIABLES.setdefault("YARN_CONTAINER_MEMORY", "2048")
     ENV_VARIABLES.setdefault("YARN_TIMEOUT", "1800000")
-    ENV_VARIABLES.setdefault("APPLICATION_TAGS", "test-dbt")
+    ENV_VARIABLES.setdefault("APPLICATION_TAGS", "yarn-dbt")
     
 
 # Perform kerberos authorization in gateway machine
