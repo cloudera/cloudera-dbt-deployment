@@ -27,9 +27,10 @@ from datetime import datetime
 from dotenv import dotenv_values
 from requests_gssapi import HTTPSPNEGOAuth
 
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s: %(message)s"
-)
+# default log level warning
+LOGLEVEL = os.environ.get("LOGLEVEL", "WARNING").upper()
+
+logging.basicConfig(level=LOGLEVEL, format="%(asctime)s - %(levelname)s: %(message)s")
 
 # Global dictionary to store all environment variables.
 ENV_VARIABLES = None
@@ -65,21 +66,49 @@ def main():
 # load the environment variables from yarn.env file
 def load_fetch_environment_variables():
     logging.info("Loading environment variables.")
-    dot_env_path = os.path.join(os.path.expanduser('~'), "yarn.env")
+    dot_env_path = os.path.join(os.path.expanduser("~"), "yarn.env")
     isFile = os.path.isfile(dot_env_path)
     if not isFile:
         logging.critical(
-            "Missing yarn.env file in home directory " + os.path.expanduser('~')
+            "Missing yarn.env file in home directory " + os.path.expanduser("~")
         )
         sys.exit(10)
 
     global ENV_VARIABLES
     ENV_VARIABLES = dotenv_values(dot_env_path)
     logging.info(f"Found config in %s", dot_env_path)
+    check_environment_variables(ENV_VARIABLES)
     for key, value in ENV_VARIABLES.items():
         logging.info(f"{key} : {value}")
     logging.info("Done Loading environment variables.")
 
+
+def check_environment_variables(ENV_VARIABLES):
+    expected_mandatory_keys = [
+        "DEPENDENCIES_PACKAGE_PATH_HDFS",
+        "DEPENDENCIES_PACKAGE_NAME",
+        "YARN_JAR",
+        "DBT_SERVICE_USER",
+        "DBT_PROJECT_NAME",
+        "YARN_RM_URI",
+        "DBT_HEADLESS_KEYTAB",
+        "DBT_HEADLESS_PRINCIPAL",
+        "CURRENT_DBT_USER",
+    ]
+
+    missing_keys = [key for key in expected_mandatory_keys if key not in ENV_VARIABLES]
+
+    # log and exit if yarn.env file doesn't have necessary key values
+    if missing_keys:
+        logging.critical("Missing keys in yarn.env: %s", missing_keys)
+        sys.exit(10)
+
+    # Below keys are optional. Set values incase user doesn't add these values.
+    ENV_VARIABLES.setdefault("DBT_DOCS_PORT", "7777")
+    ENV_VARIABLES.setdefault("YARN_CONTAINER_MEMORY", "2048")
+    ENV_VARIABLES.setdefault("YARN_TIMEOUT", "1800000")
+    ENV_VARIABLES.setdefault("APPLICATION_TAGS", "test-dbt")
+    
 
 # Perform kerberos authorization in gateway machine
 def perform_user_authorization(user_type):
@@ -165,11 +194,15 @@ def generate_yarn_shell_command(app_name):
     download_python_dependencies_start = "echo -n '{}: Download python dependencies start: '; date +'%Y-%m-%d:%H:%M:%S'".format(
         app_name
     )
-    download_python_dependencies_from_hdfs = "hdfs dfs -copyToLocal {}/dependencies.tar.gz {} && tar -zxf {}/dependencies.tar.gz --directory {}".format(
-        ENV_VARIABLES["DEPENDENCIES_PACKAGE_LOCATION"],
-        working_dir,
-        working_dir,
-        working_dir,
+    download_python_dependencies_from_hdfs = (
+        "hdfs dfs -copyToLocal {}/{} {} && tar -zxf {}/{} --directory {}".format(
+            ENV_VARIABLES["DEPENDENCIES_PACKAGE_PATH_HDFS"],
+            ENV_VARIABLES["DEPENDENCIES_PACKAGE_NAME"],
+            working_dir,
+            working_dir,
+            ENV_VARIABLES["DEPENDENCIES_PACKAGE_NAME"],
+            working_dir,
+        )
     )
     download_python_dependencies_end = "echo -n '{}: Download python dependencies end: '; date +'%Y-%m-%d:%H:%M:%S'".format(
         app_name
@@ -198,8 +231,10 @@ def generate_yarn_shell_command(app_name):
     DBT_DEPLOYMENT_ENV["version"] = "1.2.0"
 
     dbt_env_json_string = json.dumps(DBT_DEPLOYMENT_ENV)
-    set_environment_variables_command = "DBT_DEPLOYMENT_ENV='{}' && export DBT_DEPLOYMENT_ENV".format(
-        dbt_env_json_string
+    set_environment_variables_command = (
+        "DBT_DEPLOYMENT_ENV='{}' && export DBT_DEPLOYMENT_ENV".format(
+            dbt_env_json_string
+        )
     )
     set_environment_variables_end = "echo -n '{}: Setting env blob for deployment done: '; date +'%Y-%m-%d:%H:%M:%S'".format(
         app_name
@@ -210,14 +245,16 @@ def generate_yarn_shell_command(app_name):
     run_dbt_command_start = (
         "echo -n '{}: Dbt command start: '; date +'%Y-%m-%d:%H:%M:%S'".format(app_name)
     )
-    dbt_command = "ls -lrt {} && cd {}/{} && {}/dbt-venv/bin/dbt {} --profiles-dir={}/{}".format(
-        working_dir,
-        working_dir,
-        ENV_VARIABLES["DBT_PROJECT_NAME"],
-        working_dir,
-        dbt_command_string,
-        working_dir,
-        ENV_VARIABLES["DBT_PROJECT_NAME"],
+    dbt_command = (
+        "ls -lrt {} && cd {}/{} && {}/dbt-venv/bin/dbt {} --profiles-dir={}/{}".format(
+            working_dir,
+            working_dir,
+            ENV_VARIABLES["DBT_PROJECT_NAME"],
+            working_dir,
+            dbt_command_string,
+            working_dir,
+            ENV_VARIABLES["DBT_PROJECT_NAME"],
+        )
     )
     run_dbt_command_end = (
         "echo -n '{}: Dbt command end: '; date +'%Y-%m-%d:%H:%M:%S'".format(app_name)
@@ -304,8 +341,12 @@ def print_yarn_logs(yarn_id, log_type):
 
 # Compress current dbt project to localize in yarn containers.
 def compress_project_directory():
-    logging.info("Compressing dbt project directory: %s/%s", os.getcwd(),ENV_VARIABLES["DBT_PROJECT_NAME"])
-    compressed_project_directory = os.path.expanduser('~/dbt-workspace.tar.gz')
+    logging.info(
+        "Compressing dbt project directory: %s/%s",
+        os.getcwd(),
+        ENV_VARIABLES["DBT_PROJECT_NAME"],
+    )
+    compressed_project_directory = os.path.expanduser("~/dbt-workspace.tar.gz")
     result = subprocess.run(
         [
             "tar",
@@ -322,8 +363,11 @@ def compress_project_directory():
 
 def launch_yarn_container_with_dbt_command():
     # generate unique app name based on current timestamp and dbt username
-    app_name = "dbt.{}.{}".format(ENV_VARIABLES["CURRENT_DBT_USER"], datetime.utcnow().strftime("%Y-%m-%d-%H-%M-%S"))
-    compressed_project_directory = os.path.expanduser('~/dbt-workspace.tar.gz')
+    app_name = "dbt.{}.{}".format(
+        ENV_VARIABLES["CURRENT_DBT_USER"],
+        datetime.utcnow().strftime("%Y-%m-%d-%H-%M-%S"),
+    )
+    compressed_project_directory = os.path.expanduser("~/dbt-workspace.tar.gz")
 
     logging.debug(
         "%s",
@@ -382,12 +426,12 @@ def launch_yarn_container_with_dbt_command():
     print_yarn_logs(yarn_id, "prelaunch.out")
     yarn_log_string = "yarn logs -applicationId {}".format(yarn_id)
     print("To display all yarn container logs run command: ")
-    print(yarn_log_string,"\n")
+    print(yarn_log_string, "\n")
 
 
 # Upload dbt project to hdfs
 def copy_project_to_hdfs():
-    compressed_project_directory = os.path.expanduser('~/dbt-workspace.tar.gz')
+    compressed_project_directory = os.path.expanduser("~/dbt-workspace.tar.gz")
     subprocess.run(
         [
             "hdfs",
@@ -433,11 +477,15 @@ def generate_yarn_payload():
         )
     )
 
-    download_python_dependencies_from_hdfs = "hdfs dfs -copyToLocal {}/dependencies.tar.gz {} && tar -zxf {}/dependencies.tar.gz --directory {}".format(
-        ENV_VARIABLES["DEPENDENCIES_PACKAGE_LOCATION"],
-        yarn_local_working_dir,
-        yarn_local_working_dir,
-        yarn_local_working_dir,
+    download_python_dependencies_from_hdfs = (
+        "hdfs dfs -copyToLocal {}/{} {} && tar -zxf {}/{} --directory {}".format(
+            ENV_VARIABLES["DEPENDENCIES_PACKAGE_PATH_HDFS"],
+            ENV_VARIABLES["DEPENDENCIES_PACKAGE_NAME"],
+            yarn_local_working_dir,
+            yarn_local_working_dir,
+            ENV_VARIABLES["DEPENDENCIES_PACKAGE_NAME"],
+            yarn_local_working_dir,
+        )
     )
 
     populate_working_dir_command = "source {}/dbt-venv/bin/activate && cd {}/dependencies && {}/dbt-venv/bin/pip install * -f ./ --no-index".format(
@@ -505,3 +553,4 @@ def host_dbt_docs():
         verify=False,
     )
     print(response.text)
+
