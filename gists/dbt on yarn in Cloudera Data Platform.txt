@@ -1,0 +1,578 @@
+# Setting up dbt on yarn
+## Login to your base cluster
+hajmera@22249 ~ % ssh root@hajmera-1.vpc.cloudera.com 
+root@hajmera-1.vpc.cloudera.com's password: 
+Last login: Wed Nov 16 21:37:43 2022 from 10.19.11.195
+
+## Download and install the dbt deployment package
+[root@hajmera-1 ~]# mkdir dbtTesting
+[root@hajmera-1 ~]# cd dbtTesting/
+[root@hajmera-1 dbtTesting]# wget https://github.com/cloudera/cloudera-dbt-deployment/releases/download/Prerelease/cloudera-dbt-deployment-1.2.0.tar.gz
+--2022-11-16 21:44:23-- https://github.com/cloudera/cloudera-dbt-deployment/releases/download/Prerelease/cloudera-dbt-deployment-1.2.0.tar.gz
+Resolving github.com (github.com)... 192.30.255.113
+Connecting to github.com (github.com)|192.30.255.113|:443... connected.
+HTTP request sent, awaiting response... 302 Found
+Location: https://objects.githubusercontent.com/github-production-release-asset-2e65be/556856869/c5902a04-7ecc-468c-b278-7740798624cb?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAIWNJYAX4CSVEH53A%2F20221117%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20221117T054423Z&X-Amz-Expires=300&X-Amz-Signature=93ee4cb9ed24e13144309120cdcd13a80cdbf37a54249050f4dbeb293fd7fbfc&X-Amz-SignedHeaders=host&actor_id=0&key_id=0&repo_id=556856869&response-content-disposition=attachment%3B%20filename%3Dcloudera-dbt-deployment-1.2.0.tar.gz&response-content-type=application%2Foctet-stream [following]
+--2022-11-16 21:44:23-- https://objects.githubusercontent.com/github-production-release-asset-2e65be/556856869/c5902a04-7ecc-468c-b278-7740798624cb?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAIWNJYAX4CSVEH53A%2F20221117%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20221117T054423Z&X-Amz-Expires=300&X-Amz-Signature=93ee4cb9ed24e13144309120cdcd13a80cdbf37a54249050f4dbeb293fd7fbfc&X-Amz-SignedHeaders=host&actor_id=0&key_id=0&repo_id=556856869&response-content-disposition=attachment%3B%20filename%3Dcloudera-dbt-deployment-1.2.0.tar.gz&response-content-type=application%2Foctet-stream
+Resolving objects.githubusercontent.com (objects.githubusercontent.com)... 185.199.109.133, 185.199.111.133, 185.199.110.133, ...
+Connecting to objects.githubusercontent.com (objects.githubusercontent.com)|185.199.109.133|:443... connected.
+HTTP request sent, awaiting response... 200 OK
+Length: 5773 (5.6K) [application/octet-stream]
+Saving to: ‘cloudera-dbt-deployment-1.2.0.tar.gz’
+
+100%[========================================================================================================================================================================>] 5,773 --.-K/s in 0s 
+
+2022-11-16 21:44:24 (60.0 MB/s) - ‘cloudera-dbt-deployment-1.2.0.tar.gz’ saved [5773/5773]
+[root@hajmera-1 dbtTesting]# python3 -m venv run-dbt-in-yarn
+[root@hajmera-1 dbtTesting]# source run-dbt-in-yarn/bin/activate
+(run-dbt-in-yarn) [root@hajmera-1 dbtTesting]# python3 -m pip install cloudera-dbt-deployment-1.2.0.tar.gz
+Processing ./cloudera-dbt-deployment-1.2.0.tar.gz
+Collecting python-dotenv
+Downloading python_dotenv-0.21.0-py3-none-any.whl (18 kB)
+Collecting requests_gssapi
+Downloading requests-gssapi-1.2.3.tar.gz (19 kB)
+Collecting requests>=1.1.0
+Downloading requests-2.28.1-py3-none-any.whl (62 kB)
+|████████████████████████████████| 62 kB 1.4 MB/s 
+Collecting gssapi
+Downloading gssapi-1.8.2.tar.gz (94 kB)
+|████████████████████████████████| 94 kB 4.6 MB/s 
+Installing build dependencies ... done
+Getting requirements to build wheel ... done
+Installing backend dependencies ... done
+Preparing wheel metadata ... done
+Collecting urllib3<1.27,>=1.21.1
+Downloading urllib3-1.26.12-py2.py3-none-any.whl (140 kB)
+|████████████████████████████████| 140 kB 26.7 MB/s 
+Collecting charset-normalizer<3,>=2
+Downloading charset_normalizer-2.1.1-py3-none-any.whl (39 kB)
+Collecting idna<4,>=2.5
+Downloading idna-3.4-py3-none-any.whl (61 kB)
+|████████████████████████████████| 61 kB 232 kB/s 
+Collecting certifi>=2017.4.17
+Downloading certifi-2022.9.24-py3-none-any.whl (161 kB)
+|████████████████████████████████| 161 kB 47.8 MB/s 
+Collecting decorator
+Downloading decorator-5.1.1-py3-none-any.whl (9.1 kB)
+Using legacy 'setup.py install' for cloudera-dbt-deployment, since package 'wheel' is not installed.
+Using legacy 'setup.py install' for requests-gssapi, since package 'wheel' is not installed.
+Building wheels for collected packages: gssapi
+Building wheel for gssapi (PEP 517) ... done
+Created wheel for gssapi: filename=gssapi-1.8.2-cp38-cp38-linux_x86_64.whl size=2837513 sha256=21237cc84a03118a2b483e890704fa045c126817597b7589b737f8397d714d8d
+Stored in directory: /root/.cache/pip/wheels/1a/9c/de/bcf42d46549ed9ebe297440653c62900202f06b90fd40151a3
+Successfully built gssapi
+Installing collected packages: urllib3, idna, decorator, charset-normalizer, certifi, requests, gssapi, requests-gssapi, python-dotenv, cloudera-dbt-deployment
+Running setup.py install for requests-gssapi ... done
+Running setup.py install for cloudera-dbt-deployment ... done
+Successfully installed certifi-2022.9.24 charset-normalizer-2.1.1 cloudera-dbt-deployment-1.2.0 decorator-5.1.1 gssapi-1.8.2 idna-3.4 python-dotenv-0.21.0 requests-2.28.1 requests-gssapi-1.2.3 urllib3-1.26.12
+
+## Download the python packages for all of the dbt runtime (for airgapped environments)
+(run-dbt-in-yarn) [root@hajmera-1 dbtTesting]# wget https://github.com/cloudera/cloudera-dbt-deployment/releases/download/Prerelease/Centos7_x86_x64_dbt_dependencies.tar.gz
+--2022-11-16 21:50:19-- https://github.com/cloudera/cloudera-dbt-deployment/releases/download/Prerelease/Centos7_x86_x64_dbt_dependencies.tar.gz
+Resolving github.com (github.com)... 192.30.255.113
+Connecting to github.com (github.com)|192.30.255.113|:443... connected.
+HTTP request sent, awaiting response... 302 Found
+Location: https://objects.githubusercontent.com/github-production-release-asset-2e65be/556856869/9a41c423-a7cf-4906-a43c-cab950251953?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAIWNJYAX4CSVEH53A%2F20221117%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20221117T055019Z&X-Amz-Expires=300&X-Amz-Signature=27c443c51db008233a3063524ef310f9156a9000cfde6e0d9072df8a7c873049&X-Amz-SignedHeaders=host&actor_id=0&key_id=0&repo_id=556856869&response-content-disposition=attachment%3B%20filename%3DCentos7_x86_x64_dbt_dependencies.tar.gz&response-content-type=application%2Foctet-stream [following]
+--2022-11-16 21:50:19-- https://objects.githubusercontent.com/github-production-release-asset-2e65be/556856869/9a41c423-a7cf-4906-a43c-cab950251953?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAIWNJYAX4CSVEH53A%2F20221117%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20221117T055019Z&X-Amz-Expires=300&X-Amz-Signature=27c443c51db008233a3063524ef310f9156a9000cfde6e0d9072df8a7c873049&X-Amz-SignedHeaders=host&actor_id=0&key_id=0&repo_id=556856869&response-content-disposition=attachment%3B%20filename%3DCentos7_x86_x64_dbt_dependencies.tar.gz&response-content-type=application%2Foctet-stream
+Resolving objects.githubusercontent.com (objects.githubusercontent.com)... 185.199.110.133, 185.199.111.133, 185.199.108.133, ...
+Connecting to objects.githubusercontent.com (objects.githubusercontent.com)|185.199.110.133|:443... connected.
+HTTP request sent, awaiting response... 200 OK
+Length: 22120170 (21M) [application/octet-stream]
+Saving to: ‘Centos7_x86_x64_dbt_dependencies.tar.gz’
+
+100%[========================================================================================================================================================================>] 22,120,170 14.2MB/s in 1.5s
+
+2022-11-16 21:50:21 (14.2 MB/s) - ‘Centos7_x86_x64_dbt_dependencies.tar.gz’ saved [22120170/22120170]
+
+(run-dbt-in-yarn) [root@hajmera-1 dbtTesting]# hdfs dfs -copyFromLocal Centos7_x86_x64_dbt_dependencies.tar.gz /tmp
+(run-dbt-in-yarn) [root@hajmera-1 dbtTesting]# hdfs dfs -ls /tmp
+Found 4 items
+d--------- - hdfs supergroup 0 2022-11-16 21:54 /tmp/.cloudera_health_monitoring_canary_files
+-rw-r--r-- 2 systest supergroup 22120170 2022-11-16 21:53 /tmp/Centos7_x86_x64_dbt_dependencies.tar.gz
+drwx-wx-wx - hive supergroup 0 2022-11-16 20:28 /tmp/hive
+drwxrwxrwt - mapred hadoop 0 2022-11-16 20:42 /tmp/logs
+
+# Setup yarn for a specific dbt project
+## Clone the dbt project
+(run-dbt-in-yarn) [root@hajmera-1 dbtTesting]# git clone https://github.com/cloudera/dbt-hive-example.git
+Cloning into 'dbt-hive-example'...
+remote: Enumerating objects: 103, done.
+remote: Counting objects: 100% (103/103), done.
+remote: Compressing objects: 100% (63/63), done.
+remote: Total 103 (delta 43), reused 52 (delta 17), pack-reused 0
+Receiving objects: 100% (103/103), 157.35 KiB | 0 bytes/s, done.
+Resolving deltas: 100% (43/43), done.
+
+## Create the yarn.env file
+cd dbt-hive-example
+
+cat > yarn.env
+DEPENDENCIES_PACKAGE_LOCATION=/tmp
+YARN_JAR=/opt/cloudera/parcels/CDH/lib/hadoop-yarn/hadoop-yarn-applications-distributedshell.jar 
+DBT_SERVICE_USER=hive
+DBT_PROJECT_NAME=dbt_hive_demo
+YARN_RM_URI=http://hajmera-1.vpc.cloudera.com:8088
+DBT_HEADLESS_KEYTAB=/cdep/keytabs/systest.keytab
+DBT_HEADLESS_PRINCIPAL=systest@VPC.CLOUDERA.COM
+CURRENT_DBT_USER=systest
+DBT_DOCS_PORT=7777
+YARN_CONTAINER_MEMORY=2048
+YARN_TIMEOUT=1200000
+APPLICATION_TAGS="cia-user-ha-testing.dbt-debug"
+
+## Create the dbt profiles.yml file
+cd dbt_hive_demo
+
+cat > profiles.yml
+dbt_hive_demo:
+  outputs:
+    dbt_hive_demo:
+      auth_type: kerberos
+      host: hajmera-1.vpc.cloudera.com
+      port: 10000
+      schema: dbt_hive_demo
+      threads: 2
+      type: hive
+      use_http_transport: false
+      use_ssl: false
+      kerberos_service_name: hive
+  target: dbt_hive_demo
+
+## Run kinit to get the authentication token
+(run-dbt-in-yarn) [root@hajmera-1 dbt_hive_demo]# kinit -kt /cdep/keytabs/systest.keytab systest
+
+# Work with the dbt project using yarn_dbt
+## Test the connection to the warehouse
+(run-dbt-in-yarn) [root@hajmera-1 dbt-hive-example]# yarn_dbt debug
+['/root/dbtTesting/run-dbt-in-yarn/bin/yarn_dbt', 'debug']
+2022-11-16 22:30:01,577 - INFO: Loading environment variables.
+2022-11-16 22:30:01,580 - INFO: Found config in /root/yarn.env
+2022-11-16 22:30:01,580 - INFO: DEPENDENCIES_PACKAGE_LOCATION : /tmp
+2022-11-16 22:30:01,580 - INFO: YARN_JAR : /opt/cloudera/parcels/CDH/lib/hadoop-yarn/hadoop-yarn-applications-distributedshell.jar
+2022-11-16 22:30:01,580 - INFO: DBT_SERVICE_USER : hive
+2022-11-16 22:30:01,580 - INFO: DBT_PROJECT_NAME : dbt_hive_demo
+2022-11-16 22:30:01,581 - INFO: YARN_RM_URI : http://hajmera-1.vpc.cloudera.com:8088
+2022-11-16 22:30:01,581 - INFO: DBT_HEADLESS_KEYTAB : /cdep/keytabs/systest.keytab
+2022-11-16 22:30:01,581 - INFO: DBT_HEADLESS_PRINCIPAL : systest@VPC.CLOUDERA.COM
+2022-11-16 22:30:01,581 - INFO: CURRENT_DBT_USER : systest
+2022-11-16 22:30:01,581 - INFO: DBT_DOCS_PORT : 7777
+2022-11-16 22:30:01,581 - INFO: YARN_CONTAINER_MEMORY : 2048
+2022-11-16 22:30:01,581 - INFO: YARN_TIMEOUT : 1200000
+2022-11-16 22:30:01,581 - INFO: APPLICATION_TAGS : cia-user-ha-testing,dbt-debug
+2022-11-16 22:30:01,581 - INFO: Done Loading environment variables.
+Running dbt commands: 
+2022-11-16 22:30:01,586 - INFO: Compressing dbt project directory: /root/dbtTesting/dbt-hive-example/dbt_hive_demo
+2022-11-16 22:30:01,608 - INFO: Done compressing dbt project directory.
+2022-11-16 22:30:01,609 - INFO: shell command generated: echo -n 'dbt.systest.2022-11-17-06-30-01: Kinit start: '; date +'%Y-%m-%d:%H:%M:%S' && kinit -kt /cdep/keytabs/systest.keytab systest@VPC.CLOUDERA.COM && echo -n 'dbt.systest.2022-11-17-06-30-01: Kinit end: '; date +'%Y-%m-%d:%H:%M:%S' && echo -n 'dbt.systest.2022-11-17-06-30-01: Create working directory start: '; date +'%Y-%m-%d:%H:%M:%S' && mkdir -p /tmp/dbt-2022-11-17-06-30-01 && tar -zxf dbt-workspace.tar.gz --directory /tmp/dbt-2022-11-17-06-30-01 && cd /tmp/dbt-2022-11-17-06-30-01 && python3 -m venv /tmp/dbt-2022-11-17-06-30-01/dbt-venv && echo -n 'dbt.systest.2022-11-17-06-30-01: Create working directory end: '; date +'%Y-%m-%d:%H:%M:%S' && echo -n 'dbt.systest.2022-11-17-06-30-01: Download python dependencies start: '; date +'%Y-%m-%d:%H:%M:%S' && hdfs dfs -copyToLocal /tmp/dependencies.tar.gz /tmp/dbt-2022-11-17-06-30-01 && tar -zxf /tmp/dbt-2022-11-17-06-30-01/dependencies.tar.gz --directory /tmp/dbt-2022-11-17-06-30-01 && echo -n 'dbt.systest.2022-11-17-06-30-01: Download python dependencies end: '; date +'%Y-%m-%d:%H:%M:%S' && echo -n 'dbt.systest.2022-11-17-06-30-01: Install python dependencies start: '; date +'%Y-%m-%d:%H:%M:%S' && source /tmp/dbt-2022-11-17-06-30-01/dbt-venv/bin/activate && cd /tmp/dbt-2022-11-17-06-30-01/dependencies && /tmp/dbt-2022-11-17-06-30-01/dbt-venv/bin/pip install * -q -f ./ --no-index && echo -n 'dbt.systest.2022-11-17-06-30-01: Install python dependencies end: '; date +'%Y-%m-%d:%H:%M:%S' && echo -n 'dbt.systest.2022-11-17-06-30-01: Setting env blob for deployment start: '; date +'%Y-%m-%d:%H:%M:%S' && DBT_DEPLOYMENT_ENV='{"env": "yarn", "version": "1.2.0"}' && export DBT_DEPLOYMENT_ENV && echo -n 'dbt.systest.2022-11-17-06-30-01: Setting env blob for deployment done: '; date +'%Y-%m-%d:%H:%M:%S' && echo -n 'dbt.systest.2022-11-17-06-30-01: Dbt command start: '; date +'%Y-%m-%d:%H:%M:%S' && ls -lrt /tmp/dbt-2022-11-17-06-30-01 && cd /tmp/dbt-2022-11-17-06-30-01/dbt_hive_demo && /tmp/dbt-2022-11-17-06-30-01/dbt-venv/bin/dbt debug --profiles-dir=/tmp/dbt-2022-11-17-06-30-01/dbt_hive_demo && echo -n 'dbt.systest.2022-11-17-06-30-01: Dbt command end: '; date +'%Y-%m-%d:%H:%M:%S' ; echo -n 'dbt.systest.2022-11-17-06-30-01: DBT post run log aggregation and cleanup start: '; date +'%Y-%m-%d:%H:%M:%S' && cat logs/dbt.log >&2 && echo -n 'dbt.systest.2022-11-17-06-30-01: DBT post run log aggregation and cleanup end '; date +'%Y-%m-%d:%H:%M:%S'; rm -rf /tmp/dbt-2022-11-17-06-30-01
+2022-11-16 22:30:01,609 - INFO: Starting to execute the DBT job in YARN using Distributed Shell App for appid: dbt.systest.2022-11-17-06-30-01
+WARNING: YARN_OPTS has been replaced by HADOOP_OPTS. Using value of YARN_OPTS.
+22/11/16 22:31:51 INFO client.RMProxy: Connecting to ResourceManager at hajmera-1.vpc.cloudera.com/10.65.50.49:8032
+Container: container_1668659251077_0008_01_000001 on hajmera-2.vpc.cloudera.com_8041
+LogAggregationType: AGGREGATED
+====================================================================================
+LogType:prelaunch.out
+LogLastModifiedTime:Wed Nov 16 22:30:07 -0800 2022
+LogLength:70
+LogContents:
+Setting up env variables
+Setting up job resources
+Launching container
+
+End of LogType:prelaunch.out
+******************************************************************************
+
+Container: container_1668659251077_0008_01_000002 on hajmera-2.vpc.cloudera.com_8041
+LogAggregationType: AGGREGATED
+====================================================================================
+LogType:prelaunch.out
+LogLastModifiedTime:Wed Nov 16 22:31:47 -0800 2022
+LogLength:2223
+LogContents:
+Setting up env variables
+Setting up job resources
+Launching container
+dbt.systest.2022-11-17-06-30-01: Kinit start: 2022-11-16:22:30:15
+dbt.systest.2022-11-17-06-30-01: Kinit end: 2022-11-16:22:30:15
+dbt.systest.2022-11-17-06-30-01: Create working directory start: 2022-11-16:22:30:15
+dbt.systest.2022-11-17-06-30-01: Create working directory end: 2022-11-16:22:30:20
+dbt.systest.2022-11-17-06-30-01: Download python dependencies start: 2022-11-16:22:30:20
+dbt.systest.2022-11-17-06-30-01: Download python dependencies end: 2022-11-16:22:30:23
+dbt.systest.2022-11-17-06-30-01: Install python dependencies start: 2022-11-16:22:30:23
+dbt.systest.2022-11-17-06-30-01: Install python dependencies end: 2022-11-16:22:31:41
+dbt.systest.2022-11-17-06-30-01: Setting env blob for deployment start: 2022-11-16:22:31:41
+dbt.systest.2022-11-17-06-30-01: Setting env blob for deployment done: 2022-11-16:22:31:41
+dbt.systest.2022-11-17-06-30-01: Dbt command start: 2022-11-16:22:31:41
+total 21608
+drwxr-x--- 2 systest systest 4096 Nov 8 20:12 dependencies
+drwxr-x--- 5 systest systest 141 Nov 16 22:09 dbt_hive_demo
+-rw-r--r-- 1 systest systest 22120170 Nov 16 22:30 dependencies.tar.gz
+drwxr-x--- 6 systest systest 99 Nov 16 22:31 dbt-venv
+06:31:46 Running with dbt=1.2.2
+dbt version: 1.2.2
+python version: 3.8.12
+python path: /tmp/dbt-2022-11-17-06-30-01/dbt-venv/bin/python3
+os info: Linux-3.10.0-862.2.3.el7.x86_64-x86_64-with-glibc2.2.5
+Using profiles.yml file at /tmp/dbt-2022-11-17-06-30-01/dbt_hive_demo/profiles.yml
+Using dbt_project.yml file at /tmp/dbt-2022-11-17-06-30-01/dbt_hive_demo/dbt_project.yml
+
+Configuration:
+  profiles.yml file [OK found and valid]
+  dbt_project.yml file [OK found and valid]
+
+Required dependencies:
+ - git [OK found]
+
+Connection:
+  host: hajmera-1.vpc.cloudera.com
+  schema: dbt_hive_demo
+  user: None
+  Connection test: [OK connection ok]
+
+All checks passed!
+dbt.systest.2022-11-17-06-30-01: Dbt command end: 2022-11-16:22:31:47
+dbt.systest.2022-11-17-06-30-01: DBT post run log aggregation and cleanup start: 2022-11-16:22:31:47
+dbt.systest.2022-11-17-06-30-01: DBT post run log aggregation and cleanup end 2022-11-16:22:31:47
+
+End of LogType:prelaunch.out
+
+## Loading reference data
+(run-dbt-in-yarn) [root@hajmera-1 dbt-hive-example]# yarn_dbt seed
+['/root/dbtTesting/run-dbt-in-yarn/bin/yarn_dbt', 'seed']
+2022-11-16 23:02:51,861 - INFO: Loading environment variables.
+2022-11-16 23:02:51,863 - INFO: Found config in /root/yarn.env
+2022-11-16 23:02:51,864 - INFO: DEPENDENCIES_PACKAGE_LOCATION : /tmp
+2022-11-16 23:02:51,864 - INFO: YARN_JAR : /opt/cloudera/parcels/CDH/lib/hadoop-yarn/hadoop-yarn-applications-distributedshell.jar
+2022-11-16 23:02:51,864 - INFO: DBT_SERVICE_USER : hive
+2022-11-16 23:02:51,864 - INFO: DBT_PROJECT_NAME : dbt_hive_demo
+2022-11-16 23:02:51,864 - INFO: YARN_RM_URI : http://hajmera-1.vpc.cloudera.com:8088
+2022-11-16 23:02:51,864 - INFO: DBT_HEADLESS_KEYTAB : /cdep/keytabs/systest.keytab
+2022-11-16 23:02:51,864 - INFO: DBT_HEADLESS_PRINCIPAL : systest@VPC.CLOUDERA.COM
+2022-11-16 23:02:51,864 - INFO: CURRENT_DBT_USER : systest
+2022-11-16 23:02:51,864 - INFO: DBT_DOCS_PORT : 7777
+2022-11-16 23:02:51,864 - INFO: YARN_CONTAINER_MEMORY : 2048
+2022-11-16 23:02:51,864 - INFO: YARN_TIMEOUT : 1800000
+2022-11-16 23:02:51,864 - INFO: APPLICATION_TAGS : cia-user-ha-testing,dbt-debug
+2022-11-16 23:02:51,864 - INFO: Done Loading environment variables.
+Running dbt commands: 
+2022-11-16 23:02:51,869 - INFO: Compressing dbt project directory: /root/dbtTesting/dbt-hive-example/dbt_hive_demo
+2022-11-16 23:02:51,890 - INFO: Done compressing dbt project directory.
+2022-11-16 23:02:51,891 - INFO: shell command generated: echo -n 'dbt.systest.2022-11-17-07-02-51: Kinit start: '; date +'%Y-%m-%d:%H:%M:%S' && kinit -kt /cdep/keytabs/systest.keytab systest@VPC.CLOUDERA.COM && echo -n 'dbt.systest.2022-11-17-07-02-51: Kinit end: '; date +'%Y-%m-%d:%H:%M:%S' && echo -n 'dbt.systest.2022-11-17-07-02-51: Create working directory start: '; date +'%Y-%m-%d:%H:%M:%S' && mkdir -p /tmp/dbt-2022-11-17-07-02-51 && tar -zxf dbt-workspace.tar.gz --directory /tmp/dbt-2022-11-17-07-02-51 && cd /tmp/dbt-2022-11-17-07-02-51 && python3 -m venv /tmp/dbt-2022-11-17-07-02-51/dbt-venv && echo -n 'dbt.systest.2022-11-17-07-02-51: Create working directory end: '; date +'%Y-%m-%d:%H:%M:%S' && echo -n 'dbt.systest.2022-11-17-07-02-51: Download python dependencies start: '; date +'%Y-%m-%d:%H:%M:%S' && hdfs dfs -copyToLocal /tmp/dependencies.tar.gz /tmp/dbt-2022-11-17-07-02-51 && tar -zxf /tmp/dbt-2022-11-17-07-02-51/dependencies.tar.gz --directory /tmp/dbt-2022-11-17-07-02-51 && echo -n 'dbt.systest.2022-11-17-07-02-51: Download python dependencies end: '; date +'%Y-%m-%d:%H:%M:%S' && echo -n 'dbt.systest.2022-11-17-07-02-51: Install python dependencies start: '; date +'%Y-%m-%d:%H:%M:%S' && source /tmp/dbt-2022-11-17-07-02-51/dbt-venv/bin/activate && cd /tmp/dbt-2022-11-17-07-02-51/dependencies && /tmp/dbt-2022-11-17-07-02-51/dbt-venv/bin/pip install * -q -f ./ --no-index && echo -n 'dbt.systest.2022-11-17-07-02-51: Install python dependencies end: '; date +'%Y-%m-%d:%H:%M:%S' && echo -n 'dbt.systest.2022-11-17-07-02-51: Setting env blob for deployment start: '; date +'%Y-%m-%d:%H:%M:%S' && DBT_DEPLOYMENT_ENV='{"env": "yarn", "version": "1.2.0"}' && export DBT_DEPLOYMENT_ENV && echo -n 'dbt.systest.2022-11-17-07-02-51: Setting env blob for deployment done: '; date +'%Y-%m-%d:%H:%M:%S' && echo -n 'dbt.systest.2022-11-17-07-02-51: Dbt command start: '; date +'%Y-%m-%d:%H:%M:%S' && ls -lrt /tmp/dbt-2022-11-17-07-02-51 && cd /tmp/dbt-2022-11-17-07-02-51/dbt_hive_demo && /tmp/dbt-2022-11-17-07-02-51/dbt-venv/bin/dbt seed --profiles-dir=/tmp/dbt-2022-11-17-07-02-51/dbt_hive_demo && echo -n 'dbt.systest.2022-11-17-07-02-51: Dbt command end: '; date +'%Y-%m-%d:%H:%M:%S' ; echo -n 'dbt.systest.2022-11-17-07-02-51: DBT post run log aggregation and cleanup start: '; date +'%Y-%m-%d:%H:%M:%S' && cat logs/dbt.log >&2 && echo -n 'dbt.systest.2022-11-17-07-02-51: DBT post run log aggregation and cleanup end '; date +'%Y-%m-%d:%H:%M:%S'; rm -rf /tmp/dbt-2022-11-17-07-02-51
+2022-11-16 23:02:51,891 - INFO: Starting to execute the DBT job in YARN using Distributed Shell App for appid: dbt.systest.2022-11-17-07-02-51
+WARNING: YARN_OPTS has been replaced by HADOOP_OPTS. Using value of YARN_OPTS.
+22/11/16 23:12:44 INFO client.RMProxy: Connecting to ResourceManager at hajmera-1.vpc.cloudera.com/10.65.50.49:8032
+Container: container_1668659251077_0013_01_000002 on hajmera-2.vpc.cloudera.com_8041
+LogAggregationType: AGGREGATED
+====================================================================================
+LogType:prelaunch.out
+LogLastModifiedTime:Wed Nov 16 23:12:41 -0800 2022
+LogLength:2999
+LogContents:
+Setting up env variables
+Setting up job resources
+Launching container
+dbt.systest.2022-11-17-07-02-51: Kinit start: 2022-11-16:23:03:05
+dbt.systest.2022-11-17-07-02-51: Kinit end: 2022-11-16:23:03:05
+dbt.systest.2022-11-17-07-02-51: Create working directory start: 2022-11-16:23:03:05
+dbt.systest.2022-11-17-07-02-51: Create working directory end: 2022-11-16:23:03:09
+dbt.systest.2022-11-17-07-02-51: Download python dependencies start: 2022-11-16:23:03:09
+dbt.systest.2022-11-17-07-02-51: Download python dependencies end: 2022-11-16:23:03:13
+dbt.systest.2022-11-17-07-02-51: Install python dependencies start: 2022-11-16:23:03:13
+dbt.systest.2022-11-17-07-02-51: Install python dependencies end: 2022-11-16:23:04:30
+dbt.systest.2022-11-17-07-02-51: Setting env blob for deployment start: 2022-11-16:23:04:30
+dbt.systest.2022-11-17-07-02-51: Setting env blob for deployment done: 2022-11-16:23:04:30
+dbt.systest.2022-11-17-07-02-51: Dbt command start: 2022-11-16:23:04:30
+total 21608
+drwxr-x--- 2 systest systest 4096 Nov 8 20:12 dependencies
+drwxr-x--- 5 systest systest 141 Nov 16 23:01 dbt_hive_demo
+-rw-r--r-- 1 systest systest 22120170 Nov 16 23:03 dependencies.tar.gz
+drwxr-x--- 6 systest systest 99 Nov 16 23:04 dbt-venv
+07:04:36 Running with dbt=1.2.2
+07:04:36 Partial parse save file not found. Starting full parse.
+07:04:38 Found 2 models, 13 tests, 0 snapshots, 0 analyses, 293 macros, 0 operations, 4 seed files, 2 sources, 0 exposures, 0 metrics
+07:04:38 
+07:04:39 Concurrency: 2 threads (target='cloudera_cia')
+07:04:39 
+07:04:39 1 of 4 START seed file dbt_hive_demo.raw_covid__cases .......................... [RUN]
+07:04:39 2 of 4 START seed file dbt_hive_demo.raw_covid__vaccines ....................... [RUN]
+07:05:25 1 of 4 OK loaded seed file dbt_hive_demo.raw_covid__cases ...................... [CREATE 510 in 46.88s]
+07:05:25 3 of 4 START seed file dbt_hive_demo_reference.ref__country_codes .............. [RUN]
+07:05:32 3 of 4 OK loaded seed file dbt_hive_demo_reference.ref__country_codes .......... [CREATE 255 in 6.44s]
+07:05:32 4 of 4 START seed file dbt_hive_demo_reference.ref__populations ................ [RUN]
+07:05:36 4 of 4 OK loaded seed file dbt_hive_demo_reference.ref__populations ............ [CREATE 266 in 4.24s]
+07:12:40 2 of 4 OK loaded seed file dbt_hive_demo.raw_covid__vaccines ................... [CREATE 3740 in 480.99s]
+07:12:40 
+07:12:40 Finished running 4 seeds in 0 hours 8 minutes and 1.90 seconds (481.90s).
+07:12:40 
+07:12:40 Completed successfully
+07:12:40 
+07:12:40 Done. PASS=4 WARN=0 ERROR=0 SKIP=0 TOTAL=4
+dbt.systest.2022-11-17-07-02-51: Dbt command end: 2022-11-16:23:12:41
+dbt.systest.2022-11-17-07-02-51: DBT post run log aggregation and cleanup start: 2022-11-16:23:12:41
+dbt.systest.2022-11-17-07-02-51: DBT post run log aggregation and cleanup end 2022-11-16:23:12:41
+
+End of LogType:prelaunch.out
+******************************************************************************
+
+Container: container_1668659251077_0013_01_000001 on hajmera-3.vpc.cloudera.com_8041
+LogAggregationType: AGGREGATED
+====================================================================================
+LogType:prelaunch.out
+LogLastModifiedTime:Wed Nov 16 23:02:57 -0800 2022
+LogLength:70
+LogContents:
+Setting up env variables
+Setting up job resources
+Launching container
+
+End of LogType:prelaunch.out
+******************************************************************************
+
+## Validate reference data
+(run-dbt-in-yarn) [root@hajmera-1 dbt-hive-example]# yarn_dbt test
+['/root/dbtTesting/run-dbt-in-yarn/bin/yarn_dbt', 'test']
+2022-11-16 23:21:53,906 - INFO: Loading environment variables.
+2022-11-16 23:21:53,909 - INFO: Found config in /root/yarn.env
+2022-11-16 23:21:53,909 - INFO: DEPENDENCIES_PACKAGE_LOCATION : /tmp
+2022-11-16 23:21:53,909 - INFO: YARN_JAR : /opt/cloudera/parcels/CDH/lib/hadoop-yarn/hadoop-yarn-applications-distributedshell.jar
+2022-11-16 23:21:53,909 - INFO: DBT_SERVICE_USER : hive
+2022-11-16 23:21:53,909 - INFO: DBT_PROJECT_NAME : dbt_hive_demo
+2022-11-16 23:21:53,909 - INFO: YARN_RM_URI : http://hajmera-1.vpc.cloudera.com:8088
+2022-11-16 23:21:53,909 - INFO: DBT_HEADLESS_KEYTAB : /cdep/keytabs/systest.keytab
+2022-11-16 23:21:53,909 - INFO: DBT_HEADLESS_PRINCIPAL : systest@VPC.CLOUDERA.COM
+2022-11-16 23:21:53,909 - INFO: CURRENT_DBT_USER : systest
+2022-11-16 23:21:53,909 - INFO: DBT_DOCS_PORT : 7777
+2022-11-16 23:21:53,909 - INFO: YARN_CONTAINER_MEMORY : 2048
+2022-11-16 23:21:53,909 - INFO: YARN_TIMEOUT : 1800000
+2022-11-16 23:21:53,910 - INFO: APPLICATION_TAGS : cia-user-ha-testing,dbt-debug
+2022-11-16 23:21:53,910 - INFO: Done Loading environment variables.
+Running dbt commands: 
+2022-11-16 23:21:53,915 - INFO: Compressing dbt project directory: /root/dbtTesting/dbt-hive-example/dbt_hive_demo
+2022-11-16 23:21:53,936 - INFO: Done compressing dbt project directory.
+2022-11-16 23:21:53,936 - INFO: shell command generated: echo -n 'dbt.systest.2022-11-17-07-21-53: Kinit start: '; date +'%Y-%m-%d:%H:%M:%S' && kinit -kt /cdep/keytabs/systest.keytab systest@VPC.CLOUDERA.COM && echo -n 'dbt.systest.2022-11-17-07-21-53: Kinit end: '; date +'%Y-%m-%d:%H:%M:%S' && echo -n 'dbt.systest.2022-11-17-07-21-53: Create working directory start: '; date +'%Y-%m-%d:%H:%M:%S' && mkdir -p /tmp/dbt-2022-11-17-07-21-53 && tar -zxf dbt-workspace.tar.gz --directory /tmp/dbt-2022-11-17-07-21-53 && cd /tmp/dbt-2022-11-17-07-21-53 && python3 -m venv /tmp/dbt-2022-11-17-07-21-53/dbt-venv && echo -n 'dbt.systest.2022-11-17-07-21-53: Create working directory end: '; date +'%Y-%m-%d:%H:%M:%S' && echo -n 'dbt.systest.2022-11-17-07-21-53: Download python dependencies start: '; date +'%Y-%m-%d:%H:%M:%S' && hdfs dfs -copyToLocal /tmp/dependencies.tar.gz /tmp/dbt-2022-11-17-07-21-53 && tar -zxf /tmp/dbt-2022-11-17-07-21-53/dependencies.tar.gz --directory /tmp/dbt-2022-11-17-07-21-53 && echo -n 'dbt.systest.2022-11-17-07-21-53: Download python dependencies end: '; date +'%Y-%m-%d:%H:%M:%S' && echo -n 'dbt.systest.2022-11-17-07-21-53: Install python dependencies start: '; date +'%Y-%m-%d:%H:%M:%S' && source /tmp/dbt-2022-11-17-07-21-53/dbt-venv/bin/activate && cd /tmp/dbt-2022-11-17-07-21-53/dependencies && /tmp/dbt-2022-11-17-07-21-53/dbt-venv/bin/pip install * -q -f ./ --no-index && echo -n 'dbt.systest.2022-11-17-07-21-53: Install python dependencies end: '; date +'%Y-%m-%d:%H:%M:%S' && echo -n 'dbt.systest.2022-11-17-07-21-53: Setting env blob for deployment start: '; date +'%Y-%m-%d:%H:%M:%S' && DBT_DEPLOYMENT_ENV='{"env": "yarn", "version": "1.2.0"}' && export DBT_DEPLOYMENT_ENV && echo -n 'dbt.systest.2022-11-17-07-21-53: Setting env blob for deployment done: '; date +'%Y-%m-%d:%H:%M:%S' && echo -n 'dbt.systest.2022-11-17-07-21-53: Dbt command start: '; date +'%Y-%m-%d:%H:%M:%S' && ls -lrt /tmp/dbt-2022-11-17-07-21-53 && cd /tmp/dbt-2022-11-17-07-21-53/dbt_hive_demo && /tmp/dbt-2022-11-17-07-21-53/dbt-venv/bin/dbt test --profiles-dir=/tmp/dbt-2022-11-17-07-21-53/dbt_hive_demo && echo -n 'dbt.systest.2022-11-17-07-21-53: Dbt command end: '; date +'%Y-%m-%d:%H:%M:%S' ; echo -n 'dbt.systest.2022-11-17-07-21-53: DBT post run log aggregation and cleanup start: '; date +'%Y-%m-%d:%H:%M:%S' && cat logs/dbt.log >&2 && echo -n 'dbt.systest.2022-11-17-07-21-53: DBT post run log aggregation and cleanup end '; date +'%Y-%m-%d:%H:%M:%S'; rm -rf /tmp/dbt-2022-11-17-07-21-53
+2022-11-16 23:21:53,936 - INFO: Starting to execute the DBT job in YARN using Distributed Shell App for appid: dbt.systest.2022-11-17-07-21-53
+WARNING: YARN_OPTS has been replaced by HADOOP_OPTS. Using value of YARN_OPTS.
+22/11/16 23:29:48 INFO client.RMProxy: Connecting to ResourceManager at hajmera-1.vpc.cloudera.com/10.65.50.49:8032
+Container: container_1668659251077_0015_01_000002 on hajmera-2.vpc.cloudera.com_8041
+LogAggregationType: AGGREGATED
+====================================================================================
+LogType:prelaunch.out
+LogLastModifiedTime:Wed Nov 16 23:29:46 -0800 2022
+LogLength:4966
+LogContents:
+Setting up env variables
+Setting up job resources
+Launching container
+dbt.systest.2022-11-17-07-21-53: Kinit start: 2022-11-16:23:22:07
+dbt.systest.2022-11-17-07-21-53: Kinit end: 2022-11-16:23:22:07
+dbt.systest.2022-11-17-07-21-53: Create working directory start: 2022-11-16:23:22:07
+dbt.systest.2022-11-17-07-21-53: Create working directory end: 2022-11-16:23:22:11
+dbt.systest.2022-11-17-07-21-53: Download python dependencies start: 2022-11-16:23:22:11
+dbt.systest.2022-11-17-07-21-53: Download python dependencies end: 2022-11-16:23:22:15
+dbt.systest.2022-11-17-07-21-53: Install python dependencies start: 2022-11-16:23:22:15
+dbt.systest.2022-11-17-07-21-53: Install python dependencies end: 2022-11-16:23:23:32
+dbt.systest.2022-11-17-07-21-53: Setting env blob for deployment start: 2022-11-16:23:23:32
+dbt.systest.2022-11-17-07-21-53: Setting env blob for deployment done: 2022-11-16:23:23:32
+dbt.systest.2022-11-17-07-21-53: Dbt command start: 2022-11-16:23:23:32
+total 21608
+drwxr-x--- 2 systest systest 4096 Nov 8 20:12 dependencies
+drwxr-x--- 5 systest systest 141 Nov 16 23:01 dbt_hive_demo
+-rw-r--r-- 1 systest systest 22120170 Nov 16 23:22 dependencies.tar.gz
+drwxr-x--- 6 systest systest 99 Nov 16 23:23 dbt-venv
+07:23:37 Running with dbt=1.2.2
+07:23:37 Partial parse save file not found. Starting full parse.
+07:23:40 Found 2 models, 13 tests, 0 snapshots, 0 analyses, 293 macros, 0 operations, 4 seed files, 2 sources, 0 exposures, 0 metrics
+07:23:40 
+07:23:40 Concurrency: 2 threads (target='cloudera_cia')
+07:23:40 
+07:23:40 1 of 13 START test length_ref__country_codes_alpha_2code__2 .................... [RUN]
+07:23:40 2 of 13 START test length_ref__country_codes_alpha_3code__3 .................... [RUN]
+07:23:59 1 of 13 PASS length_ref__country_codes_alpha_2code__2 .......................... [PASS in 18.66s]
+07:23:59 3 of 13 START test length_ref__populations_country_code__3 ..................... [RUN]
+07:24:00 3 of 13 PASS length_ref__populations_country_code__3 ........................... [PASS in 0.90s]
+07:24:00 4 of 13 START test not_null_ref__country_codes_alpha_2code ..................... [RUN]
+07:24:00 4 of 13 PASS not_null_ref__country_codes_alpha_2code ........................... [PASS in 0.67s]
+07:24:00 5 of 13 START test not_null_ref__country_codes_alpha_3code ..................... [RUN]
+07:24:01 5 of 13 PASS not_null_ref__country_codes_alpha_3code ........................... [PASS in 0.55s]
+07:24:01 6 of 13 START test not_null_ref__country_codes_country ......................... [RUN]
+07:24:02 6 of 13 PASS not_null_ref__country_codes_country ............................... [PASS in 0.60s]
+07:24:02 7 of 13 START test not_null_ref__country_codes_latitude_avg .................... [RUN]
+07:24:02 7 of 13 PASS not_null_ref__country_codes_latitude_avg .......................... [PASS in 0.84s]
+07:24:02 8 of 13 START test not_null_ref__country_codes_longitude_avg ................... [RUN]
+07:24:03 8 of 13 PASS not_null_ref__country_codes_longitude_avg ......................... [PASS in 0.62s]
+07:24:03 9 of 13 START test not_null_ref__country_codes_numeric_code .................... [RUN]
+07:24:04 9 of 13 PASS not_null_ref__country_codes_numeric_code .......................... [PASS in 0.54s]
+07:24:04 10 of 13 START test not_null_ref__populations_country_code ..................... [RUN]
+07:24:04 10 of 13 PASS not_null_ref__populations_country_code ........................... [PASS in 0.59s]
+07:24:04 11 of 13 START test not_null_ref__populations_population ....................... [RUN]
+07:24:05 11 of 13 PASS not_null_ref__populations_population ............................. [PASS in 0.60s]
+07:24:05 12 of 13 START test source_length_raw_covid_raw_covid__cases_geo_id__2 ......... [RUN]
+07:24:06 12 of 13 PASS source_length_raw_covid_raw_covid__cases_geo_id__2 ............... [PASS in 0.82s]
+07:24:06 13 of 13 START test source_not_null_raw_covid_raw_covid__cases_geo_id .......... [RUN]
+07:24:06 13 of 13 PASS source_not_null_raw_covid_raw_covid__cases_geo_id ................ [PASS in 0.48s]
+07:29:45 2 of 13 PASS length_ref__country_codes_alpha_3code__3 .......................... [PASS in 364.77s]
+07:29:45 
+07:29:45 Finished running 13 tests in 0 hours 6 minutes and 5.40 seconds (365.40s).
+07:29:45 
+07:29:45 Completed successfully
+07:29:45 
+07:29:45 Done. PASS=13 WARN=0 ERROR=0 SKIP=0 TOTAL=13
+dbt.systest.2022-11-17-07-21-53: Dbt command end: 2022-11-16:23:29:46
+dbt.systest.2022-11-17-07-21-53: DBT post run log aggregation and cleanup start: 2022-11-16:23:29:46
+dbt.systest.2022-11-17-07-21-53: DBT post run log aggregation and cleanup end 2022-11-16:23:29:46
+
+End of LogType:prelaunch.out
+******************************************************************************
+
+Container: container_1668659251077_0015_01_000001 on hajmera-3.vpc.cloudera.com_8041
+LogAggregationType: AGGREGATED
+====================================================================================
+LogType:prelaunch.out
+LogLastModifiedTime:Wed Nov 16 23:21:59 -0800 2022
+LogLength:70
+LogContents:
+Setting up env variables
+Setting up job resources
+Launching container
+
+End of LogType:prelaunch.out
+******************************************************************************
+
+## Run the transformation
+(run-dbt-in-yarn) [root@hajmera-1 dbt-hive-example]# yarn_dbt run
+['/root/dbtTesting/run-dbt-in-yarn/bin/yarn_dbt', 'run']
+2022-11-16 23:31:06,833 - INFO: Loading environment variables.
+2022-11-16 23:31:06,836 - INFO: Found config in /root/yarn.env
+2022-11-16 23:31:06,836 - INFO: DEPENDENCIES_PACKAGE_LOCATION : /tmp
+2022-11-16 23:31:06,836 - INFO: YARN_JAR : /opt/cloudera/parcels/CDH/lib/hadoop-yarn/hadoop-yarn-applications-distributedshell.jar
+2022-11-16 23:31:06,836 - INFO: DBT_SERVICE_USER : hive
+2022-11-16 23:31:06,836 - INFO: DBT_PROJECT_NAME : dbt_hive_demo
+2022-11-16 23:31:06,836 - INFO: YARN_RM_URI : http://hajmera-1.vpc.cloudera.com:8088
+2022-11-16 23:31:06,837 - INFO: DBT_HEADLESS_KEYTAB : /cdep/keytabs/systest.keytab
+2022-11-16 23:31:06,837 - INFO: DBT_HEADLESS_PRINCIPAL : systest@VPC.CLOUDERA.COM
+2022-11-16 23:31:06,837 - INFO: CURRENT_DBT_USER : systest
+2022-11-16 23:31:06,837 - INFO: DBT_DOCS_PORT : 7777
+2022-11-16 23:31:06,837 - INFO: YARN_CONTAINER_MEMORY : 2048
+2022-11-16 23:31:06,837 - INFO: YARN_TIMEOUT : 1800000
+2022-11-16 23:31:06,837 - INFO: APPLICATION_TAGS : cia-user-ha-testing,dbt-debug
+2022-11-16 23:31:06,837 - INFO: Done Loading environment variables.
+Running dbt commands: 
+2022-11-16 23:31:06,842 - INFO: Compressing dbt project directory: /root/dbtTesting/dbt-hive-example/dbt_hive_demo
+2022-11-16 23:31:06,863 - INFO: Done compressing dbt project directory.
+2022-11-16 23:31:06,863 - INFO: shell command generated: echo -n 'dbt.systest.2022-11-17-07-31-06: Kinit start: '; date +'%Y-%m-%d:%H:%M:%S' && kinit -kt /cdep/keytabs/systest.keytab systest@VPC.CLOUDERA.COM && echo -n 'dbt.systest.2022-11-17-07-31-06: Kinit end: '; date +'%Y-%m-%d:%H:%M:%S' && echo -n 'dbt.systest.2022-11-17-07-31-06: Create working directory start: '; date +'%Y-%m-%d:%H:%M:%S' && mkdir -p /tmp/dbt-2022-11-17-07-31-06 && tar -zxf dbt-workspace.tar.gz --directory /tmp/dbt-2022-11-17-07-31-06 && cd /tmp/dbt-2022-11-17-07-31-06 && python3 -m venv /tmp/dbt-2022-11-17-07-31-06/dbt-venv && echo -n 'dbt.systest.2022-11-17-07-31-06: Create working directory end: '; date +'%Y-%m-%d:%H:%M:%S' && echo -n 'dbt.systest.2022-11-17-07-31-06: Download python dependencies start: '; date +'%Y-%m-%d:%H:%M:%S' && hdfs dfs -copyToLocal /tmp/dependencies.tar.gz /tmp/dbt-2022-11-17-07-31-06 && tar -zxf /tmp/dbt-2022-11-17-07-31-06/dependencies.tar.gz --directory /tmp/dbt-2022-11-17-07-31-06 && echo -n 'dbt.systest.2022-11-17-07-31-06: Download python dependencies end: '; date +'%Y-%m-%d:%H:%M:%S' && echo -n 'dbt.systest.2022-11-17-07-31-06: Install python dependencies start: '; date +'%Y-%m-%d:%H:%M:%S' && source /tmp/dbt-2022-11-17-07-31-06/dbt-venv/bin/activate && cd /tmp/dbt-2022-11-17-07-31-06/dependencies && /tmp/dbt-2022-11-17-07-31-06/dbt-venv/bin/pip install * -q -f ./ --no-index && echo -n 'dbt.systest.2022-11-17-07-31-06: Install python dependencies end: '; date +'%Y-%m-%d:%H:%M:%S' && echo -n 'dbt.systest.2022-11-17-07-31-06: Setting env blob for deployment start: '; date +'%Y-%m-%d:%H:%M:%S' && DBT_DEPLOYMENT_ENV='{"env": "yarn", "version": "1.2.0"}' && export DBT_DEPLOYMENT_ENV && echo -n 'dbt.systest.2022-11-17-07-31-06: Setting env blob for deployment done: '; date +'%Y-%m-%d:%H:%M:%S' && echo -n 'dbt.systest.2022-11-17-07-31-06: Dbt command start: '; date +'%Y-%m-%d:%H:%M:%S' && ls -lrt /tmp/dbt-2022-11-17-07-31-06 && cd /tmp/dbt-2022-11-17-07-31-06/dbt_hive_demo && /tmp/dbt-2022-11-17-07-31-06/dbt-venv/bin/dbt run --profiles-dir=/tmp/dbt-2022-11-17-07-31-06/dbt_hive_demo && echo -n 'dbt.systest.2022-11-17-07-31-06: Dbt command end: '; date +'%Y-%m-%d:%H:%M:%S' ; echo -n 'dbt.systest.2022-11-17-07-31-06: DBT post run log aggregation and cleanup start: '; date +'%Y-%m-%d:%H:%M:%S' && cat logs/dbt.log >&2 && echo -n 'dbt.systest.2022-11-17-07-31-06: DBT post run log aggregation and cleanup end '; date +'%Y-%m-%d:%H:%M:%S'; rm -rf /tmp/dbt-2022-11-17-07-31-06
+2022-11-16 23:31:06,863 - INFO: Starting to execute the DBT job in YARN using Distributed Shell App for appid: dbt.systest.2022-11-17-07-31-06
+WARNING: YARN_OPTS has been replaced by HADOOP_OPTS. Using value of YARN_OPTS.
+22/11/16 23:33:14 INFO client.RMProxy: Connecting to ResourceManager at hajmera-1.vpc.cloudera.com/10.65.50.49:8032
+Container: container_1668659251077_0018_01_000001 on hajmera-2.vpc.cloudera.com_8041
+LogAggregationType: AGGREGATED
+====================================================================================
+LogType:prelaunch.out
+LogLastModifiedTime:Wed Nov 16 23:31:12 -0800 2022
+LogLength:70
+LogContents:
+Setting up env variables
+Setting up job resources
+Launching container
+
+End of LogType:prelaunch.out
+******************************************************************************
+
+Container: container_1668659251077_0018_01_000002 on hajmera-2.vpc.cloudera.com_8041
+LogAggregationType: AGGREGATED
+====================================================================================
+LogType:prelaunch.out
+LogLastModifiedTime:Wed Nov 16 23:33:11 -0800 2022
+LogLength:2552
+LogContents:
+Setting up env variables
+Setting up job resources
+Launching container
+dbt.systest.2022-11-17-07-31-06: Kinit start: 2022-11-16:23:31:21
+dbt.systest.2022-11-17-07-31-06: Kinit end: 2022-11-16:23:31:21
+dbt.systest.2022-11-17-07-31-06: Create working directory start: 2022-11-16:23:31:21
+dbt.systest.2022-11-17-07-31-06: Create working directory end: 2022-11-16:23:31:25
+dbt.systest.2022-11-17-07-31-06: Download python dependencies start: 2022-11-16:23:31:25
+dbt.systest.2022-11-17-07-31-06: Download python dependencies end: 2022-11-16:23:31:28
+dbt.systest.2022-11-17-07-31-06: Install python dependencies start: 2022-11-16:23:31:28
+dbt.systest.2022-11-17-07-31-06: Install python dependencies end: 2022-11-16:23:32:46
+dbt.systest.2022-11-17-07-31-06: Setting env blob for deployment start: 2022-11-16:23:32:46
+dbt.systest.2022-11-17-07-31-06: Setting env blob for deployment done: 2022-11-16:23:32:46
+dbt.systest.2022-11-17-07-31-06: Dbt command start: 2022-11-16:23:32:46
+total 21608
+drwxr-x--- 2 systest systest 4096 Nov 8 20:12 dependencies
+drwxr-x--- 5 systest systest 141 Nov 16 23:01 dbt_hive_demo
+-rw-r--r-- 1 systest systest 22120170 Nov 16 23:31 dependencies.tar.gz
+drwxr-x--- 6 systest systest 99 Nov 16 23:32 dbt-venv
+07:32:51 Running with dbt=1.2.2
+07:32:51 Partial parse save file not found. Starting full parse.
+07:32:53 Found 2 models, 13 tests, 0 snapshots, 0 analyses, 293 macros, 0 operations, 4 seed files, 2 sources, 0 exposures, 0 metrics
+07:32:53 
+07:32:54 Concurrency: 2 threads (target='cloudera_cia')
+07:32:54 
+07:32:54 1 of 2 START view model dbt_hive_demo_staging_covid.stg_covid__cases ........... [RUN]
+07:32:55 1 of 2 OK created view model dbt_hive_demo_staging_covid.stg_covid__cases ...... [OK in 0.36s]
+07:32:55 2 of 2 START incremental model dbt_hive_demo_mart_covid.covid_cases ............ [RUN]
+07:33:10 2 of 2 OK created incremental model dbt_hive_demo_mart_covid.covid_cases ....... [OK in 15.57s]
+07:33:10 
+07:33:10 Finished running 1 view model, 1 incremental model in 0 hours 0 minutes and 17.14 seconds (17.14s).
+07:33:10 
+07:33:10 Completed successfully
+07:33:10 
+07:33:10 Done. PASS=2 WARN=0 ERROR=0 SKIP=0 TOTAL=2
+dbt.systest.2022-11-17-07-31-06: Dbt command end: 2022-11-16:23:33:11
+dbt.systest.2022-11-17-07-31-06: DBT post run log aggregation and cleanup start: 2022-11-16:23:33:11
+dbt.systest.2022-11-17-07-31-06: DBT post run log aggregation and cleanup end 2022-11-16:23:33:11
+
+End of LogType:prelaunch.out
+******************************************************************************
+
+## Host and access the documentation
+(run-dbt-in-yarn) [root@hajmera-1 dbt-hive-example]# yarn_dbt docs
+['/root/dbtTesting/run-dbt-in-yarn/bin/yarn_dbt', 'docs']
+2022-11-16 23:36:52,496 - INFO: Loading environment variables.
+2022-11-16 23:36:52,499 - INFO: Found config in /root/yarn.env
+2022-11-16 23:36:52,499 - INFO: DEPENDENCIES_PACKAGE_LOCATION : /tmp
+2022-11-16 23:36:52,499 - INFO: YARN_JAR : /opt/cloudera/parcels/CDH/lib/hadoop-yarn/hadoop-yarn-applications-distributedshell.jar
+2022-11-16 23:36:52,499 - INFO: DBT_SERVICE_USER : hive
+2022-11-16 23:36:52,499 - INFO: DBT_PROJECT_NAME : dbt_hive_demo
+2022-11-16 23:36:52,499 - INFO: YARN_RM_URI : http://hajmera-1.vpc.cloudera.com:8088
+2022-11-16 23:36:52,499 - INFO: DBT_HEADLESS_KEYTAB : /cdep/keytabs/systest.keytab
+2022-11-16 23:36:52,499 - INFO: DBT_HEADLESS_PRINCIPAL : systest@VPC.CLOUDERA.COM
+2022-11-16 23:36:52,499 - INFO: CURRENT_DBT_USER : systest
+2022-11-16 23:36:52,499 - INFO: DBT_DOCS_PORT : 7777
+2022-11-16 23:36:52,500 - INFO: YARN_CONTAINER_MEMORY : 2048
+2022-11-16 23:36:52,500 - INFO: YARN_TIMEOUT : 1800000
+2022-11-16 23:36:52,500 - INFO: APPLICATION_TAGS : cia-user-ha-testing,dbt-debug
+2022-11-16 23:36:52,500 - INFO: Done Loading environment variables.
+Running dbt_docs: 
+2022-11-16 23:36:52,504 - INFO: Found keytab file /var/run/cloudera-scm-agent/process/1546335847-hive_on_tez-HIVESERVER2/hive.keytab
+2022-11-16 23:36:55,105 - INFO: Done Uploading dbt project to hdfs.
+2022-11-16 23:36:55,106 - INFO: mkdir -p /tmp/dbt-2022-11-17-07-36-55 && cd /tmp/dbt-2022-11-17-07-36-55 && python3 -m venv /tmp/dbt-2022-11-17-07-36-55/dbt-venv && hdfs dfs -copyToLocal /tmp/dependencies.tar.gz /tmp/dbt-2022-11-17-07-36-55 && tar -zxf /tmp/dbt-2022-11-17-07-36-55/dependencies.tar.gz --directory /tmp/dbt-2022-11-17-07-36-55 && source /tmp/dbt-2022-11-17-07-36-55/dbt-venv/bin/activate && cd /tmp/dbt-2022-11-17-07-36-55/dependencies && /tmp/dbt-2022-11-17-07-36-55/dbt-venv/bin/pip install * -f ./ --no-index && hdfs dfs -copyToLocal /tmp/dbt-workspace.tar.gz /tmp/dbt-2022-11-17-07-36-55 && tar -zxf /tmp/dbt-2022-11-17-07-36-55/dbt-workspace.tar.gz --directory /tmp/dbt-2022-11-17-07-36-55 && cd /tmp/dbt-2022-11-17-07-36-55/dbt_hive_demo && /tmp/dbt-2022-11-17-07-36-55/dbt-venv/bin/dbt docs generate --profiles-dir=/tmp/dbt-2022-11-17-07-36-55/dbt_hive_demo ; echo 'DBT docs hosted on port 7777 on host: ' $(hostname) >&2 && python3 -m http.server 7777 --directory target
+2022-11-16 23:36:55,106 - INFO: Payload generation done: 
+{
+"name": "dbt-service",
+"version": "1.0",
+"kerberos_principal": {
+"keytab": "file:///var/run/cloudera-scm-agent/process/1546335847-hive_on_tez-HIVESERVER2/hive.keytab",
+"principal_name": "hive/hajmera-1.vpc.cloudera.com"
+},
+"components": [
+{
+"name": "dbtdocs",
+"number_of_containers": 1,
+"launch_command": "mkdir -p /tmp/dbt-2022-11-17-07-36-55 && cd /tmp/dbt-2022-11-17-07-36-55 && python3 -m venv /tmp/dbt-2022-11-17-07-36-55/dbt-venv && hdfs dfs -copyToLocal /tmp/dependencies.tar.gz /tmp/dbt-2022-11-17-07-36-55 && tar -zxf /tmp/dbt-2022-11-17-07-36-55/dependencies.tar.gz --directory /tmp/dbt-2022-11-17-07-36-55 && source /tmp/dbt-2022-11-17-07-36-55/dbt-venv/bin/activate && cd /tmp/dbt-2022-11-17-07-36-55/dependencies && /tmp/dbt-2022-11-17-07-36-55/dbt-venv/bin/pip install * -f ./ --no-index && hdfs dfs -copyToLocal /tmp/dbt-workspace.tar.gz /tmp/dbt-2022-11-17-07-36-55 && tar -zxf /tmp/dbt-2022-11-17-07-36-55/dbt-workspace.tar.gz --directory /tmp/dbt-2022-11-17-07-36-55 && cd /tmp/dbt-2022-11-17-07-36-55/dbt_hive_demo && /tmp/dbt-2022-11-17-07-36-55/dbt-venv/bin/dbt docs generate --profiles-dir=/tmp/dbt-2022-11-17-07-36-55/dbt_hive_demo ; echo 'DBT docs hosted on port 7777 on host: ' $(hostname) >&2 && python3 -m http.server 7777 --directory target",
+"resource": {
+"cpus": 1,
+"memory": "512"
+},
+"configuration": {
+"env": {}
+}
+}
+]
+}
+{"uri":"/v1/services/dbt-service","diagnostics":"Application ID: application_1668659251077_0019","state":"ACCEPTED"}
+(run-dbt-in-yarn) [root@hajmera-1 dbt-hive-example]# yarn logs -applicationId application_1668659251077_0019 | grep '7777'
+WARNING: YARN_OPTS has been replaced by HADOOP_OPTS. Using value of YARN_OPTS.
+22/11/17 00:03:02 INFO client.RMProxy: Connecting to ResourceManager at hajmera-1.vpc.cloudera.com/10.65.50.49:8032
+launchCommand: mkdir -p /tmp/dbt-2022-11-17-07-36-55 && cd /tmp/dbt-2022-11-17-07-36-55 && python3 -m venv /tmp/dbt-2022-11-17-07-36-55/dbt-venv && hdfs dfs -copyToLocal /tmp/dependencies.tar.gz /tmp/dbt-2022-11-17-07-36-55 && tar -zxf /tmp/dbt-2022-11-17-07-36-55/dependencies.tar.gz --directory /tmp/dbt-2022-11-17-07-36-55 && source /tmp/dbt-2022-11-17-07-36-55/dbt-venv/bin/activate && cd /tmp/dbt-2022-11-17-07-36-55/dependencies && /tmp/dbt-2022-11-17-07-36-55/dbt-venv/bin/pip install * -f ./ --no-index && hdfs dfs -copyToLocal /tmp/dbt-workspace.tar.gz /tmp/dbt-2022-11-17-07-36-55 && tar -zxf /tmp/dbt-2022-11-17-07-36-55/dbt-workspace.tar.gz --directory /tmp/dbt-2022-11-17-07-36-55 && cd /tmp/dbt-2022-11-17-07-36-55/dbt_hive_demo && /tmp/dbt-2022-11-17-07-36-55/dbt-venv/bin/dbt docs generate --profiles-dir=/tmp/dbt-2022-11-17-07-36-55/dbt_hive_demo ; echo 'DBT docs hosted on port 7777 on host: ' $(hostname) >&2 && python3 -m http.server 7777 --directory target
+DBT docs hosted on port 7777 on host: hajmera-3.vpc.cloudera.com
