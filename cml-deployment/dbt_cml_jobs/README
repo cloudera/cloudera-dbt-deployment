@@ -1,0 +1,8 @@
+This folder has sample scripts which can be used in CML jobs for executing the DBT commands.
+
+job-git-clone.py			: Git clone the repo with the models
+ -- job-dbt-version.py			: Run dbt version
+    -- job-dbt-debug.py			: Run dbt debug to check for connectivity
+       -- job-dbt-run.py		: Run dbt run command  for the models
+	-- job-dbt-docs-generate.py: 	: Generate dbt docs to be served by CML app
+We can setup a dependency chain in CML so that the trigget for the git clone would run each of the steps in sequence.
